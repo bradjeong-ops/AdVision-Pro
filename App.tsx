@@ -95,6 +95,7 @@ const App: React.FC = () => {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
   const [isCheckingKey, setIsCheckingKey] = useState(true);
+  const [modalMode, setModalMode] = useState<'pin' | 'key' | 'both'>('both');
 
   useEffect(() => {
     const savedPin = localStorage.getItem('guestPin');
@@ -107,6 +108,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!isCheckingKey && !hasApiKey) {
+      setModalMode('both');
       setShowGuestModal(true);
     }
   }, [isCheckingKey, hasApiKey]);
@@ -257,12 +259,20 @@ const App: React.FC = () => {
   }, []);
 
   const handleOpenKeyDialog = async () => {
+    const customKey = localStorage.getItem('custom_gemini_api_key');
+    if (customKey) {
+      setModalMode('key');
+      setShowGuestModal(true);
+      return;
+    }
+
     try {
       await getAIStudio().openSelectKey();
       setHasApiKey(true);
       setError(null);
     } catch (e) {
       console.error("AI Studio key selection failed, showing manual input modal", e);
+      setModalMode('key');
       setShowGuestModal(true);
     }
   };
@@ -442,7 +452,18 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {showGuestModal && <GuestLoginModal onLogin={handleGuestLogin} onClose={guestPin && hasApiKey ? () => setShowGuestModal(false) : undefined} requireApiKey={!hasApiKey} initialPin={guestPin || ''} />}
+      {showGuestModal && (
+        <GuestLoginModal 
+          onLogin={(pin) => {
+            handleGuestLogin(pin);
+          }} 
+          onClose={() => {
+            setShowGuestModal(false);
+          }} 
+          mode={modalMode} 
+          initialPin={guestPin || ''} 
+        />
+      )}
 
       {fullscreenData && (
         <div 
@@ -508,12 +529,12 @@ const App: React.FC = () => {
         </div>
         <div className="flex-1 flex justify-end gap-4">
           {guestPin && (
-            <div className="text-[10px] font-black text-slate-400 flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setShowGuestModal(true)} title="Click to change Guest ID">
+            <div className="text-[10px] font-black text-slate-400 flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => { setModalMode('pin'); setShowGuestModal(true); }} title="Click to change Guest ID">
               <UserIcon className="w-4 h-4 text-indigo-400" /> GUEST: {guestPin}
             </div>
           )}
           {!guestPin && (
-            <div className="text-[10px] font-black text-slate-400 flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setShowGuestModal(true)} title="Click to login as Guest">
+            <div className="text-[10px] font-black text-slate-400 flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => { setModalMode('pin'); setShowGuestModal(true); }} title="Click to login as Guest">
               <UserIcon className="w-4 h-4 text-slate-500" /> LOGIN GUEST
             </div>
           )}
