@@ -72,11 +72,22 @@ export const classifyModelView = async (base64Image: string, mimeType: string = 
   }
 };
 
-export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png'): Promise<{ overall: string; lighting: string; background: string; mood: string }> => {
+export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png'): Promise<{ overall: string; lighting: string; background: string; mood: string; camera: string }> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
-  const prompt = `Analyze the professional composition, lighting, background, and mood of this reference image. 
-  Provide the analysis in a JSON format with the following keys: "overall", "lighting", "background", "mood". 
-  The values should be in Korean.`;
+  const prompt = `Analyze this reference image with extreme precision for professional commercial photography. 
+  Provide the analysis in English, following this exact structured format for each field in a JSON response.
+
+  JSON Keys and required sub-headers for values:
+  - "overall": (Shot Type, Camera Angle, Positioning, Lens & Focus)
+  - "camera": (Camera Angle, Focal Length, Aperture, Exposure & ISO, Perspective)
+  - "lighting": (Direction, Highlights, Shadows, Mood)
+  - "background": (Subject Base, Compositional Elements, Backdrop)
+  - "mood": (Aesthetic, Texture & Tone, Color Palette)
+
+  Example of the level of detail required for "camera":
+  "Camera Angle: Slight High Angle (High-to-Low). The camera is positioned slightly above the subject... Focal Length: 50mm Standard Prime Lens... Aperture: f/2.8... Exposure & ISO: Targeted exposure on metallic highlights..."
+
+  Ensure the output is a valid JSON object with keys: "overall", "camera", "lighting", "background", "mood". All values must be in English.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -92,18 +103,20 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
     const jsonStr = response.text?.trim() || "{}";
     const result = JSON.parse(jsonStr);
     return {
-      overall: result.overall || "이미지 분석 실패",
-      lighting: result.lighting || "이미지 분석 실패",
-      background: result.background || "이미지 분석 실패",
-      mood: result.mood || "이미지 분석 실패"
+      overall: result.overall || "Analysis failed",
+      camera: result.camera || "Analysis failed",
+      lighting: result.lighting || "Analysis failed",
+      background: result.background || "Analysis failed",
+      mood: result.mood || "Analysis failed"
     };
   } catch (e) {
     console.error("Analysis Error:", e);
     return {
-      overall: "이미지 분석 오류",
-      lighting: "이미지 분석 오류",
-      background: "이미지 분석 오류",
-      mood: "이미지 분석 오류"
+      overall: "Analysis error",
+      camera: "Analysis error",
+      lighting: "Analysis error",
+      background: "Analysis error",
+      mood: "Analysis error"
     };
   }
 };
