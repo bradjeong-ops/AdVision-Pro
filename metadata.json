@@ -1,0 +1,7 @@
+{
+  "name": "AdVision Pro - AI Product Staging",
+  "description": "A professional AI tool for creative directors and marketers to swap products and modify details in commercial photos while maintaining original lighting and composition.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
