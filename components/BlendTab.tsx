@@ -113,7 +113,7 @@ const BlendTab: React.FC<BlendTabProps> = ({
                     <button onClick={() => onTransferToIntensity(outputImage)} className="w-10 h-10 bg-black/60 rounded-full text-emerald-400 hover:text-white hover:bg-emerald-600 flex items-center justify-center border border-white/10" title="Transfer to Intensity">
                       <SparklesIcon className="w-5 h-5" />
                     </button>
-                    <button onClick={() => downloadImage(outputImage, 'result.png')} className="w-10 h-10 bg-black/60 rounded-full text-white hover:bg-indigo-600 flex items-center justify-center border border-white/10" title="Download">
+                    <button onClick={() => downloadImage(outputImage, 'AdvisionPro_Generated_Image.png')} className="w-10 h-10 bg-black/60 rounded-full text-white hover:bg-indigo-600 flex items-center justify-center border border-white/10" title="Download">
                       <ArrowDownTrayIcon className="w-5 h-5" />
                     </button>
                     <button onMouseDown={() => setIsComparing(true)} onMouseUp={() => setIsComparing(false)} onMouseLeave={() => setIsComparing(false)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border border-white/10 ${isComparing ? 'bg-white text-black' : 'bg-black/60 text-white'}`} title="Compare">
