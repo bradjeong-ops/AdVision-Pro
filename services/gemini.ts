@@ -74,7 +74,9 @@ export const classifyModelView = async (base64Image: string, mimeType: string = 
 
 export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png'): Promise<{ overall: string; lighting: string; background: string; mood: string; camera: string }> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
-  const prompt = `Analyze this reference image with extreme precision for professional commercial photography. 
+  const prompt = `Analyze this reference image with the eye of a high-end fashion curator and professional commercial photographer. 
+  Your goal is to capture the precise aesthetic and technical essence of the image with extreme detail, whether it is a "Vintage Archival" look or a "Cutting-edge Modern" style. Avoid generic or simplistic descriptors.
+
   Provide the analysis in English, following this exact structured format for each field in a JSON response.
 
   JSON Keys and required sub-headers for values:
@@ -82,12 +84,14 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   - "camera": (Camera Angle, Focal Length, Aperture, Exposure & ISO, Perspective)
   - "lighting": (Direction, Highlights, Shadows, Mood)
   - "background": (Subject Base, Compositional Elements, Backdrop)
-  - "mood": (Aesthetic, Texture & Tone, Color Palette)
+  - "mood": (Aesthetic, Texture & Tone, Atmosphere, Color Palette)
 
-  Example of the level of detail required for "camera":
-  "Camera Angle: Slight High Angle (High-to-Low). The camera is positioned slightly above the subject... Focal Length: 50mm Standard Prime Lens... Aperture: f/2.8... Exposure & ISO: Targeted exposure on metallic highlights..."
+  CRITICAL INSTRUCTIONS:
+  - Technical Precision: For "camera" and "lighting", use professional photography terminology (e.g., "Rembrandt lighting", "f/1.8 depth of field", "50mm prime compression").
+  - Aesthetic Depth: For "mood", identify the specific era or modern trend. If vintage, describe "film grain" and "analog warmth". If modern, describe "digital crispness", "minimalist precision", or "high-dynamic range".
+  - Color & Texture: Use sophisticated names (e.g., "Deep Forest Green", "Chrome Silver", "Matte Obsidian") and describe the tactile quality (e.g., "Tactile wood grain", "Sleek metallic reflection").
 
-  Ensure the output is a valid JSON object with keys: "overall", "camera", "lighting", "background", "mood". All values must be in English.`;
+  Ensure the output is a valid JSON object with keys: "overall", "camera", "lighting", "background", "mood". All values must be in English and highly descriptive.`;
 
   try {
     const response = await ai.models.generateContent({
