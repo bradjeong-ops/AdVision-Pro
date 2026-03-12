@@ -337,7 +337,7 @@ const App: React.FC = () => {
           const { ratio } = await getImageDimensions(url);
           return { id: `${Date.now()}-${idx}`, originalImage: blendInputImage || '', generatedImage: url, prompt: `${combinedPrompt}`, timestamp: Date.now(), ratio };
         }));
-        setSynthesisHistory(prev => [...newRecords, ...prev].slice(0, 20));
+        setSynthesisHistory(prev => [...newRecords, ...prev].slice(0, 100));
         setStatus(AppStatus.IDLE);
       } else {
         throw new Error("결과물이 생성되지 않았습니다.");
@@ -370,7 +370,7 @@ const App: React.FC = () => {
           const { ratio } = await getImageDimensions(url);
           return { id: `${Date.now()}-${idx}`, originalImage: intensityInputImage, generatedImage: url, prompt: `Mastering: ${customMood}`, timestamp: Date.now(), ratio };
         }));
-        setAtmosphereHistory(prev => [...newRecords, ...prev].slice(0, 20));
+        setAtmosphereHistory(prev => [...newRecords, ...prev].slice(0, 100));
         setStatus(AppStatus.IDLE);
       } else throw new Error("이미지 없음");
     } catch (err: any) {
@@ -397,7 +397,7 @@ const App: React.FC = () => {
           timestamp: Date.now(), 
           ratio 
         };
-        setAtmosphereHistory(prev => [newRecord, ...prev].slice(0, 20));
+        setAtmosphereHistory(prev => [newRecord, ...prev].slice(0, 100));
         setStatus(AppStatus.IDLE);
       } else throw new Error("화이트 밸런스 보정 실패");
     } catch (err: any) {
@@ -415,6 +415,22 @@ const App: React.FC = () => {
       return { ...prev, currentIndex: newIndex };
     });
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!fullscreenData) return;
+      if (e.key === 'ArrowLeft') navigateImage('prev');
+      if (e.key === 'ArrowRight') navigateImage('next');
+      if (e.key === 'Escape') {
+        setFullscreenData(null);
+        setIsFullscreenComparing(false);
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fullscreenData, navigateImage]);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (!fullscreenData) return;
