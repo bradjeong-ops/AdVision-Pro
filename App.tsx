@@ -44,7 +44,7 @@ interface CategoryData {
   isAnalyzing: boolean;
 }
 
-const BASE_SYNTHESIS_PROMPT = 'Professional Studio Master Asset: Identity Library의 각 MODEL을 정체성 훼손 없이 완벽히 합성하십시오. Hasselblad 중형 카메라 촬영급의 초고해상도 디테일(Sharp texture, Natural skin pores, No artifacts)을 구현하십시오. 특히 양쪽 눈의 시선 방향과 동공의 대칭성을 수학적으로 정밀하게 맞추어 부자연스러운 시선을 원천 차단하십시오. 모든 의상과 신발 라이브러리를 실제 상업 광고 수준의 무결성으로 렌더링하십시오.';
+const BASE_SYNTHESIS_PROMPT = 'Professional Studio Master Asset: Execute flawless synthesis of each MODEL from the Identity Library with absolute identity preservation. Achieve ultra-high-resolution details equivalent to Hasselblad medium-format captures (Sharp texture, Natural skin pores, Zero artifacts). Maintain mathematical precision in eye-gaze direction and pupil symmetry to eliminate any unnatural gaze. Render all garment and footwear libraries with 100% commercial-grade integrity.';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('synthesis');
@@ -84,6 +84,7 @@ const App: React.FC = () => {
   });
 
   const [overallPrompt, setOverallPrompt] = useState(BASE_SYNTHESIS_PROMPT);
+  const [cameraPrompt, setCameraPrompt] = useState('');
   const [lightingPrompt, setLightingPrompt] = useState('');
   const [backgroundPrompt, setBackgroundPrompt] = useState('');
   const [moodPrompt, setMoodPrompt] = useState('');
@@ -231,6 +232,7 @@ const App: React.FC = () => {
             try {
               const analysis = await analyzeReferenceImage(result);
               setOverallPrompt(`${BASE_SYNTHESIS_PROMPT}\n\n[OVERALL ANALYSIS]\n${analysis.overall}`);
+              setCameraPrompt(analysis.camera);
               setLightingPrompt(analysis.lighting);
               setBackgroundPrompt(analysis.background);
               setMoodPrompt(analysis.mood);
@@ -314,6 +316,7 @@ const App: React.FC = () => {
   const processEditing = async () => {
     const combinedPrompt = `
       [OVERALL_GUIDE]: ${overallPrompt}
+      [CAMERA_GUIDE]: ${cameraPrompt}
       [LIGHTING_GUIDE]: ${lightingPrompt}
       [BACKGROUND_GUIDE]: ${backgroundPrompt}
       [MOOD_GUIDE]: ${moodPrompt}
@@ -557,6 +560,7 @@ const App: React.FC = () => {
           <BlendTab
             inputImage={blendInputImage} setInputImage={setBlendInputImage} outputImage={blendOutputImage} status={status} isAnalyzing={isAnalyzing} history={synthesisHistory} setHistory={setSynthesisHistory} categorizedProducts={categorizedProducts} setCategorizedProducts={setCategorizedProducts} 
             overallPrompt={overallPrompt} setOverallPrompt={setOverallPrompt}
+            cameraPrompt={cameraPrompt} setCameraPrompt={setCameraPrompt}
             lightingPrompt={lightingPrompt} setLightingPrompt={setLightingPrompt}
             backgroundPrompt={backgroundPrompt} setBackgroundPrompt={setBackgroundPrompt}
             moodPrompt={moodPrompt} setMoodPrompt={setMoodPrompt}
