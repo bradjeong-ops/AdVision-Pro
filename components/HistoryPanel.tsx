@@ -19,33 +19,70 @@ const HistoryPanel = memo(({
   onTransfer,
   downloadImage,
   showTransfer
-}: HistoryPanelProps) => (
-  <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-6 items-start px-2 -mx-2 max-w-full">
-    {data.length === 0 ? (
+}: HistoryPanelProps) => {
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 12;
+  const totalPages = Math.ceil(data.length / itemsPerPage);
+
+  // Reset to page 1 if data changes significantly (e.g. cleared)
+  React.useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [data.length, totalPages, currentPage]);
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = data.slice(startIndex, startIndex + itemsPerPage);
+
+  if (data.length === 0) {
+    return (
       <div className="w-full flex items-center justify-center py-12 opacity-10 text-[10px] font-black uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">History Empty</div>
-    ) : (
-      data.map((item, index) => (
-        <div key={item.id} className="group shrink-0 w-72 bg-slate-900/40 border border-white/5 rounded-2xl overflow-hidden p-2 relative transition-all hover:bg-slate-900/80 cursor-pointer shadow-2xl hover:border-white/10" onClick={() => onSelect(index)}>
-          <div className="rounded-xl overflow-hidden bg-black relative shadow-inner transition-all group-hover:scale-[0.98]" style={{ aspectRatio: item.ratio || (9/16) }}>
-            <img src={item.generatedImage} className="w-full h-full object-contain" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-all duration-300">
-              <div className="absolute top-3 right-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                <button onClick={(e) => { e.stopPropagation(); downloadImage(item.generatedImage, `adv-${item.id}.png`); }} className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-indigo-600 transition-all shadow-2xl" title="Download"><ArrowDownTrayIcon className="w-5 h-5" /></button>
-                {showTransfer && onTransfer && (
-                  <button onClick={(e) => { e.stopPropagation(); onTransfer(item.generatedImage); }} className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-emerald-600 transition-all shadow-2xl" title="Process Further"><SparklesIcon className="w-5 h-5" /></button>
-                )}
-                <button onClick={(e) => { e.stopPropagation(); onRemove(item.id); }} className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-red-600 transition-all shadow-2xl" title="Delete"><TrashIcon className="w-5 h-5" /></button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-2 items-start px-2 -mx-2 max-w-full">
+        {paginatedData.map((item, index) => {
+          const globalIndex = startIndex + index;
+          return (
+            <div key={item.id} className="group bg-slate-900/40 border border-white/5 rounded-2xl overflow-hidden p-2 relative transition-all hover:bg-slate-900/80 cursor-pointer shadow-2xl hover:border-white/10" onClick={() => onSelect(globalIndex)}>
+              <div className="rounded-xl overflow-hidden bg-black relative shadow-inner transition-all group-hover:scale-[0.98]" style={{ aspectRatio: item.ratio || (9/16) }}>
+                <img src={item.generatedImage} className="w-full h-full object-contain" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <div className="absolute top-3 right-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={(e) => { e.stopPropagation(); downloadImage(item.generatedImage, `AdvisionPro_Generated_Image_${data.length - globalIndex}.png`); }} className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-indigo-600 transition-all shadow-2xl" title="Download"><ArrowDownTrayIcon className="w-5 h-5" /></button>
+                    {showTransfer && onTransfer && (
+                      <button onClick={(e) => { e.stopPropagation(); onTransfer(item.generatedImage); }} className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-emerald-600 transition-all shadow-2xl" title="Process Further"><SparklesIcon className="w-5 h-5" /></button>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); onRemove(item.id); }} className="w-10 h-10 flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-red-600 transition-all shadow-2xl" title="Delete"><TrashIcon className="w-5 h-5" /></button>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2.5 px-1 flex flex-col gap-0.5">
+                <span className="text-[9px] font-black uppercase tracking-tight text-slate-300 group-hover:text-white transition-colors truncate block">{item.prompt}</span>
+                <span className="text-[7px] font-bold text-slate-600 uppercase tracking-wider block">{new Date(item.timestamp).toLocaleTimeString()}</span>
               </div>
             </div>
-          </div>
-          <div className="mt-2.5 px-1 flex flex-col gap-0.5">
-            <span className="text-[9px] font-black uppercase tracking-tight text-slate-300 group-hover:text-white transition-colors truncate block">{item.prompt}</span>
-            <span className="text-[7px] font-bold text-slate-600 uppercase tracking-wider block">{new Date(item.timestamp).toLocaleTimeString()}</span>
-          </div>
+          );
+        })}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-4">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all border ${currentPage === page ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10 text-slate-500 hover:text-white hover:bg-white/10'}`}
+            >
+              {page}
+            </button>
+          ))}
         </div>
-      ))
-    )}
-  </div>
-));
+      )}
+    </div>
+  );
+});
 
 export default HistoryPanel;
