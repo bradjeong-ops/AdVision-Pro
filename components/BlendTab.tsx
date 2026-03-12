@@ -28,6 +28,8 @@ interface BlendTabProps {
   setCategorizedProducts: any;
   overallPrompt: string;
   setOverallPrompt: (p: string) => void;
+  cameraPrompt: string;
+  setCameraPrompt: (p: string) => void;
   lightingPrompt: string;
   setLightingPrompt: (p: string) => void;
   backgroundPrompt: string;
@@ -54,6 +56,7 @@ const BlendTab: React.FC<BlendTabProps> = ({
   inputImage, setInputImage, outputImage, status, isAnalyzing, history, setHistory,
   categorizedProducts, setCategorizedProducts, 
   overallPrompt, setOverallPrompt,
+  cameraPrompt, setCameraPrompt,
   lightingPrompt, setLightingPrompt,
   backgroundPrompt, setBackgroundPrompt,
   moodPrompt, setMoodPrompt,
@@ -150,13 +153,23 @@ const BlendTab: React.FC<BlendTabProps> = ({
            </div>
 
            <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 col-span-2">
               <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Overall Production Guide</label>
               <textarea 
                 value={overallPrompt} 
                 onChange={(e) => setOverallPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="전체적인 연출 가이드를 입력하세요..."
+                placeholder="Enter overall production guide..."
+                className={`w-full h-20 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Camera & Composition Guide</label>
+              <textarea 
+                value={cameraPrompt} 
+                onChange={(e) => setCameraPrompt(e.target.value)} 
+                disabled={isAnalyzing}
+                placeholder="Enter camera and composition guide..."
                 className={`w-full h-24 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
@@ -166,7 +179,7 @@ const BlendTab: React.FC<BlendTabProps> = ({
                 value={lightingPrompt} 
                 onChange={(e) => setLightingPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="조명 연출 가이드를 입력하세요..."
+                placeholder="Enter lighting guide..."
                 className={`w-full h-24 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
@@ -176,7 +189,7 @@ const BlendTab: React.FC<BlendTabProps> = ({
                 value={backgroundPrompt} 
                 onChange={(e) => setBackgroundPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="배경 연출 가이드를 입력하세요..."
+                placeholder="Enter background guide..."
                 className={`w-full h-24 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
@@ -186,7 +199,7 @@ const BlendTab: React.FC<BlendTabProps> = ({
                 value={moodPrompt} 
                 onChange={(e) => setMoodPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="무드 및 분위기 가이드를 입력하세요..."
+                placeholder="Enter mood and atmosphere guide..."
                 className={`w-full h-24 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
