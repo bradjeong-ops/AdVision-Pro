@@ -35,6 +35,21 @@ const getApiKey = () => {
   return customKey || process.env.API_KEY;
 };
 
+export const validateApiKey = async (apiKey: string): Promise<boolean> => {
+  const ai = new GoogleGenAI({ apiKey });
+  try {
+    // Try a very simple content generation to verify the key
+    await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{ parts: [{ text: 'ok' }] }],
+    });
+    return true;
+  } catch (e) {
+    console.error("API Key Validation Error:", e);
+    return false;
+  }
+};
+
 export const classifyModelView = async (base64Image: string, mimeType: string = 'image/png'): Promise<ModelViewType | null> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
   const prompt = `Classify this fashion image: front, side, back, or item. Output only one word.`;
