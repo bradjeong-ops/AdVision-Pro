@@ -141,14 +141,15 @@ interface IntensityTabProps {
   selectedCount: number;
   setSelectedCount: (c: number) => void;
   params: {
-    color: { name: string; weight: number };
-    lighting: { name: string; weight: number };
-    texture: { name: string; weight: number };
-    grading: { name: string; weight: number };
+    color: { selections: string[]; weight: number };
+    lighting: { selections: string[]; weight: number };
+    texture: { selections: string[]; weight: number };
+    grading: { selections: string[]; weight: number };
   };
   setParams: React.Dispatch<React.SetStateAction<any>>;
-  processAdjustment: () => void;
+  processAdjustment: (useInitial?: boolean) => void;
   processWhiteBalance: () => void;
+  resetIntensityParams: () => void;
   downloadImage: (url: string, filename: string) => void;
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>, options?: any) => void;
   handleDropUpload: (e: React.DragEvent<HTMLDivElement>, options?: any) => void;
@@ -162,7 +163,7 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
   selectedRatio, setSelectedRatio, selectedQuality, setSelectedQuality,
   selectedCount, setSelectedCount,
   params, setParams,
-  processAdjustment, processWhiteBalance, downloadImage, handleFileUpload, handleDropUpload,
+  processAdjustment, processWhiteBalance, resetIntensityParams, downloadImage, handleFileUpload, handleDropUpload,
   onSelectHistory, onOpenFullscreen, onTransferToInput
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -177,10 +178,20 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
   };
 
   const updateParam = (key: keyof typeof params, value: any) => {
-    setParams((prev: any) => ({
-      ...prev,
-      [key]: { ...prev[key], ...value }
-    }));
+    setParams((prev: any) => {
+      const current = prev[key];
+      if (value.name) {
+        if (value.name === 'None') {
+          return { ...prev, [key]: { ...current, selections: [] } };
+        }
+        const exists = current.selections.includes(value.name);
+        const newSelections = exists 
+          ? current.selections.filter((s: string) => s !== value.name)
+          : [...current.selections, value.name];
+        return { ...prev, [key]: { ...current, selections: newSelections } };
+      }
+      return { ...prev, [key]: { ...current, ...value } };
+    });
   };
 
   return (
@@ -263,7 +274,16 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border ${activeStep === step.id ? 'bg-indigo-600 border-indigo-400 shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10'}`}>
                   {step.icon}
                 </div>
-                <span className={`text-[9px] font-black uppercase tracking-widest ${activeStep === step.id ? 'text-white' : 'text-slate-500'}`}>{step.name}</span>
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className={`text-[9px] font-black uppercase tracking-widest ${activeStep === step.id ? 'text-white' : 'text-slate-500'}`}>{step.name}</span>
+                  <span className={`text-[7px] font-bold uppercase tracking-tighter truncate max-w-[60px] ${params[step.id as keyof typeof params].selections.length > 0 ? 'text-indigo-400' : 'text-slate-700'}`}>
+                    {params[step.id as keyof typeof params].selections.length > 0 
+                      ? (params[step.id as keyof typeof params].selections.length > 1 
+                          ? `${params[step.id as keyof typeof params].selections[0]} +${params[step.id as keyof typeof params].selections.length - 1}`
+                          : params[step.id as keyof typeof params].selections[0])
+                      : 'None'}
+                  </span>
+                </div>
               </div>
               {idx < WORKFLOW_STEPS.length - 1 && <div className="flex-1 h-px bg-white/5 mx-4" />}
             </React.Fragment>
@@ -279,6 +299,12 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
             </h2>
           </div>
           <div className="flex gap-2">
+            <button 
+              onClick={resetIntensityParams}
+              className="px-4 py-1.5 rounded-lg text-[10px] font-black transition-all border bg-white/5 border-white/10 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-500 shadow-lg"
+            >
+              RESET ALL
+            </button>
             {activeStep === 'color' && (
               <button 
                 disabled={status === AppStatus.GENERATING || !inputImage}
@@ -323,10 +349,10 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
                           <button 
                             key={opt.id} 
                             onClick={() => updateParam(activeStep, { name: opt.id })} 
-                            className={`flex flex-col items-start p-4 rounded-xl border transition-all text-left group ${params[activeStep].name === opt.id ? 'bg-indigo-600 border-indigo-500 text-white shadow-xl' : 'bg-black/40 border-white/5 text-slate-400 hover:border-white/10'}`}
+                            className={`flex flex-col items-start p-4 rounded-xl border transition-all text-left group ${params[activeStep].selections.includes(opt.id) || (opt.id === 'None' && params[activeStep].selections.length === 0) ? 'bg-indigo-600 border-indigo-500 text-white shadow-xl' : 'bg-black/40 border-white/5 text-slate-400 hover:border-white/10'}`}
                           >
                             <span className="text-[10px] font-black uppercase tracking-widest mb-1">{opt.name}</span>
-                            <span className={`text-[8px] font-medium leading-tight ${params[activeStep].name === opt.id ? 'text-indigo-100' : 'text-slate-600 group-hover:text-slate-500'}`}>{opt.description}</span>
+                            <span className={`text-[8px] font-medium leading-tight ${params[activeStep].selections.includes(opt.id) || (opt.id === 'None' && params[activeStep].selections.length === 0) ? 'text-indigo-100' : 'text-slate-600 group-hover:text-slate-500'}`}>{opt.description}</span>
                           </button>
                         ))}
                       </div>
@@ -358,7 +384,7 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
               <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Step Summary</label>
               <div className="p-3 bg-white/5 rounded-xl border border-white/5 h-full flex items-center">
                 <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                  {params[activeStep].name === 'None' ? "옵션을 선택하여 보정을 시작하세요." : `${params[activeStep].name} 효과를 ${params[activeStep].weight}% 강도로 적용합니다.`}
+                  {params[activeStep].selections.length === 0 ? "옵션을 선택하여 보정을 시작하세요." : `${params[activeStep].selections.join(', ')} 효과를 ${params[activeStep].weight}% 강도로 적용합니다.`}
                 </p>
               </div>
             </div>
@@ -383,11 +409,18 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
               ))}
             </div>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex gap-4">
             <button 
               disabled={status === AppStatus.GENERATING || !inputImage} 
-              onClick={processAdjustment} 
-              className={`w-full py-5 rounded-3xl font-black text-[14px] uppercase tracking-[0.4em] transition-all shadow-2xl ${status === AppStatus.GENERATING ? 'bg-slate-900 text-slate-700' : 'bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-lg shadow-indigo-500/20 hover:scale-[1.01] active:scale-95'}`}
+              onClick={() => processAdjustment(true)} 
+              className={`flex-1 py-5 rounded-3xl font-black text-[12px] uppercase tracking-[0.2em] transition-all border ${status === AppStatus.GENERATING ? 'bg-slate-900 border-white/5 text-slate-700' : 'bg-white/5 border-white/10 text-indigo-400 hover:bg-white/10 hover:border-indigo-500 shadow-lg'}`}
+            >
+              Apply All Steps (HQ)
+            </button>
+            <button 
+              disabled={status === AppStatus.GENERATING || !inputImage} 
+              onClick={() => processAdjustment(false)} 
+              className={`flex-[2] py-5 rounded-3xl font-black text-[14px] uppercase tracking-[0.4em] transition-all shadow-2xl ${status === AppStatus.GENERATING ? 'bg-slate-900 text-slate-700' : 'bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-lg shadow-indigo-500/20 hover:scale-[1.01] active:scale-95'}`}
             >
               {status === AppStatus.GENERATING ? '생성 중...' : 'GENERATE MASTERPIECE'}
             </button>
