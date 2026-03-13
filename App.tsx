@@ -69,10 +69,10 @@ const App: React.FC = () => {
   const [atmosphereHistory, setAtmosphereHistory] = useState<GenerationRecord[]>([]);
 
   const [intensityParams, setIntensityParams] = useState({
-    color: { name: 'None', weight: 50 },
-    lighting: { name: 'None', weight: 50 },
-    texture: { name: 'None', weight: 50 },
-    grading: { name: 'None', weight: 50 }
+    color: { selections: [] as string[], weight: 50 },
+    lighting: { selections: [] as string[], weight: 50 },
+    texture: { selections: [] as string[], weight: 50 },
+    grading: { selections: [] as string[], weight: 50 }
   });
 
   const [selectedQuality, setSelectedQuality] = useState<ImageQuality>("2K");
@@ -383,19 +383,20 @@ const App: React.FC = () => {
     }
   };
 
-  const processAdjustment = async () => {
-    if (!intensityInputImage) return;
+  const processAdjustment = async (useInitial: boolean = false) => {
+    const targetImage = useInitial ? intensityInitialImage : intensityInputImage;
+    if (!targetImage) return;
     if (!hasApiKey) { await handleOpenKeyDialog(); return; }
     setStatus(AppStatus.GENERATING);
     setError(null);
     try {
-      const results = await adjustAtmosphere(intensityInputImage, intensityParams, selectedRatio, selectedQuality, selectedCount);
+      const results = await adjustAtmosphere(targetImage, intensityParams, selectedRatio, selectedQuality, selectedCount);
       if (results.length > 0) {
         setIntensityOutputImage(results[0]);
         const newRecords: GenerationRecord[] = await Promise.all(results.map(async (url, idx) => {
           const { ratio } = await getImageDimensions(url);
-          const prompt = `Mastering: [Color:${intensityParams.color.name}(${intensityParams.color.weight}%)] [Light:${intensityParams.lighting.name}(${intensityParams.lighting.weight}%)] [Text:${intensityParams.texture.name}(${intensityParams.texture.weight}%)] [Grading:${intensityParams.grading.name}(${intensityParams.grading.weight}%)]`;
-          return { id: `${Date.now()}-${idx}`, originalImage: intensityInputImage, generatedImage: url, prompt, timestamp: Date.now(), ratio };
+          const prompt = `Mastering: [Color:${intensityParams.color.selections.join(', ') || 'None'}(${intensityParams.color.weight}%)] [Light:${intensityParams.lighting.selections.join(', ') || 'None'}(${intensityParams.lighting.weight}%)] [Text:${intensityParams.texture.selections.join(', ') || 'None'}(${intensityParams.texture.weight}%)] [Grading:${intensityParams.grading.selections.join(', ') || 'None'}(${intensityParams.grading.weight}%)]`;
+          return { id: `${Date.now()}-${idx}`, originalImage: targetImage, generatedImage: url, prompt, timestamp: Date.now(), ratio };
         }));
         setAtmosphereHistory(prev => [...newRecords, ...prev].slice(0, 100));
         setStatus(AppStatus.IDLE);
@@ -404,6 +405,15 @@ const App: React.FC = () => {
       setStatus(AppStatus.ERROR);
       setError(err.message || "Adjustment failed.");
     }
+  };
+
+  const resetIntensityParams = () => {
+    setIntensityParams({
+      color: { selections: [], weight: 50 },
+      lighting: { selections: [], weight: 50 },
+      texture: { selections: [], weight: 50 },
+      grading: { selections: [], weight: 50 }
+    });
   };
 
   const processWhiteBalance = async () => {
@@ -667,7 +677,7 @@ const App: React.FC = () => {
             initialImage={intensityInitialImage} setInitialImage={setIntensityInitialImage}
             outputImage={intensityOutputImage} status={status} history={atmosphereHistory} setHistory={setAtmosphereHistory} selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} 
             params={intensityParams} setParams={setIntensityParams}
-            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, initial: intensityInitialImage || undefined })), currentIndex: idx })} onOpenFullscreen={(url, original, initial) => setFullscreenData({ images: [{ url, original, initial }], currentIndex: 0 })} onTransferToInput={(url) => setIntensityInputImage(url)}
+            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} resetIntensityParams={resetIntensityParams} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, initial: intensityInitialImage || undefined })), currentIndex: idx })} onOpenFullscreen={(url, original, initial) => setFullscreenData({ images: [{ url, original, initial }], currentIndex: 0 })} onTransferToInput={(url) => setIntensityInputImage(url)}
           />
         )}
       </main>
