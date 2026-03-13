@@ -41,6 +41,7 @@ interface CategoryData {
     face: string | null;
   };
   details: string[];
+  items: string[];
   isAnalyzing: boolean;
 }
 
@@ -52,7 +53,7 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const [fullscreenData, setFullscreenData] = useState<{
-    images: {url: string, original?: string}[],
+    images: {url: string, original?: string, initial?: string}[],
     currentIndex: number
   } | null>(null);
   
@@ -63,11 +64,16 @@ const App: React.FC = () => {
   const [synthesisHistory, setSynthesisHistory] = useState<GenerationRecord[]>([]);
   
   const [intensityInputImage, setIntensityInputImage] = useState<string | null>(null);
+  const [intensityInitialImage, setIntensityInitialImage] = useState<string | null>(null);
   const [intensityOutputImage, setIntensityOutputImage] = useState<string | null>(null);
   const [atmosphereHistory, setAtmosphereHistory] = useState<GenerationRecord[]>([]);
 
-  const [selectedMood, setSelectedMood] = useState('DAWN');
-  const [selectedGrading, setSelectedGrading] = useState('FILM');
+  const [intensityParams, setIntensityParams] = useState({
+    color: { name: 'None', weight: 50 },
+    lighting: { name: 'None', weight: 50 },
+    texture: { name: 'None', weight: 50 },
+    grading: { name: 'None', weight: 50 }
+  });
 
   const [selectedQuality, setSelectedQuality] = useState<ImageQuality>("2K");
   const [selectedCount, setSelectedCount] = useState<number>(1);
@@ -78,9 +84,9 @@ const App: React.FC = () => {
   const dragStart = useRef({ x: 0, y: 0 });
 
   const [categorizedProducts, setCategorizedProducts] = useState<Record<CategoryKey, CategoryData>>({
-    id1: { mains: { front: null, side: null, back: null, face: null }, details: [], isAnalyzing: false },
-    id2: { mains: { front: null, side: null, back: null, face: null }, details: [], isAnalyzing: false },
-    other: { mains: { front: null, side: null, back: null, face: null }, details: [], isAnalyzing: false }
+    id1: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false },
+    id2: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false },
+    other: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false }
   });
 
   const [overallPrompt, setOverallPrompt] = useState(BASE_SYNTHESIS_PROMPT);
@@ -90,6 +96,7 @@ const App: React.FC = () => {
   const [moodPrompt, setMoodPrompt] = useState('');
   const [selectedRatio, setSelectedRatio] = useState<AllowedAspectRatio>("9:16");
   const [isFullscreenComparing, setIsFullscreenComparing] = useState(false);
+  const [fullscreenCompareMode, setFullscreenCompareMode] = useState<'previous' | 'original' | 'difference'>('previous');
   const [error, setError] = useState<string | null>(null);
 
   const [guestPin, setGuestPin] = useState<string | null>(null);
@@ -185,21 +192,31 @@ const App: React.FC = () => {
             reader.onloadend = () => resolve(reader.result as string);
             reader.readAsDataURL(file);
           });
-          const viewType = await classifyModelView(result);
-          setCategorizedProducts(prev => {
-            const newData = { ...prev[category] };
-            if (viewType === 'item') newData.details = [...newData.details, result];
-            else if (viewType && ['front', 'side', 'back'].includes(viewType)) {
-              const targetView = viewType as 'front' | 'side' | 'back';
-              if (!newData.mains[targetView]) newData.mains = { ...newData.mains, [targetView]: result };
-              else {
-                const searchOrder: ('front' | 'side' | 'back')[] = ['front', 'side', 'back'];
-                const emptySlot = searchOrder.find(v => !newData.mains[v]);
-                if (emptySlot) newData.mains[emptySlot] = result;
-              }
-            } else newData.details = [...newData.details, result];
-            return { ...prev, [category]: newData };
-          });
+
+          if (category === 'other') {
+            // Product 섹션은 분류 없이 즉시 추가
+            setCategorizedProducts(prev => ({
+              ...prev,
+              [category]: { ...prev[category], items: [...prev[category].items, result] }
+            }));
+          } else {
+            // Model 섹션은 기존대로 분류 로직 수행
+            const viewType = await classifyModelView(result);
+            setCategorizedProducts(prev => {
+              const newData = { ...prev[category] };
+              if (viewType === 'item') newData.details = [...newData.details, result];
+              else if (viewType && ['front', 'side', 'back'].includes(viewType)) {
+                const targetView = viewType as 'front' | 'side' | 'back';
+                if (!newData.mains[targetView]) newData.mains = { ...newData.mains, [targetView]: result };
+                else {
+                  const searchOrder: ('front' | 'side' | 'back')[] = ['front', 'side', 'back'];
+                  const emptySlot = searchOrder.find(v => !newData.mains[v]);
+                  if (emptySlot) newData.mains[emptySlot] = result;
+                }
+              } else newData.details = [...newData.details, result];
+              return { ...prev, [category]: newData };
+            });
+          }
         }
       } catch (err) {
         console.error("Bulk upload error:", err);
@@ -217,8 +234,13 @@ const App: React.FC = () => {
         if (options?.category && options?.type) {
           setCategorizedProducts(prev => {
             const newData = { ...prev[options.category!] };
-            if (options.type === 'main' && options.view) newData.mains = { ...newData.mains, [options.view]: result };
-            else if (options.type === 'detail') newData.details = [...newData.details, result];
+            if (options.category === 'other') {
+              // For Product section, everything goes to items
+              newData.items = [...newData.items, result];
+            } else {
+              if (options.type === 'main' && options.view) newData.mains = { ...newData.mains, [options.view]: result };
+              else if (options.type === 'detail') newData.details = [...newData.details, result];
+            }
             return { ...prev, [options.category!]: newData };
           });
         } else {
@@ -237,7 +259,11 @@ const App: React.FC = () => {
               setBackgroundPrompt(analysis.background);
               setMoodPrompt(analysis.mood);
             } catch (err) { console.error(err); } finally { setIsAnalyzing(false); }
-          } else { setIntensityInputImage(result); setIntensityOutputImage(null); }
+          } else { 
+            setIntensityInputImage(result); 
+            setIntensityOutputImage(null); 
+            if (!intensityInitialImage) setIntensityInitialImage(result);
+          }
         }
       };
       reader.readAsDataURL(file);
@@ -282,7 +308,7 @@ const App: React.FC = () => {
   const handleClearCategory = useCallback((category: CategoryKey) => {
     setCategorizedProducts(prev => ({
       ...prev,
-      [category]: { mains: { front: null, side: null, back: null, face: null }, details: [], isAnalyzing: false }
+      [category]: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false }
     }));
   }, []);
 
@@ -328,7 +354,7 @@ const App: React.FC = () => {
     setError(null);
     try {
       const categoriesPayload: CategorizedProduct[] = (Object.entries(categorizedProducts) as [string, CategoryData][]).map(([key, val]) => ({
-        category: key, mains: val.mains, details: val.details
+        category: key, mains: val.mains, details: val.details, items: val.items
       }));
       const results = await generateProductEdit(blendInputImage, categoriesPayload, combinedPrompt, selectedRatio, selectedQuality, selectedCount);
       if (results.length > 0) {
@@ -357,18 +383,19 @@ const App: React.FC = () => {
     }
   };
 
-  const processAdjustment = async (customMood?: string, customDetail?: string) => {
+  const processAdjustment = async () => {
     if (!intensityInputImage) return;
     if (!hasApiKey) { await handleOpenKeyDialog(); return; }
     setStatus(AppStatus.GENERATING);
     setError(null);
     try {
-      const results = await adjustAtmosphere(intensityInputImage, customMood || selectedMood, customDetail || selectedGrading, selectedRatio, selectedQuality, selectedCount);
+      const results = await adjustAtmosphere(intensityInputImage, intensityParams, selectedRatio, selectedQuality, selectedCount);
       if (results.length > 0) {
         setIntensityOutputImage(results[0]);
         const newRecords: GenerationRecord[] = await Promise.all(results.map(async (url, idx) => {
           const { ratio } = await getImageDimensions(url);
-          return { id: `${Date.now()}-${idx}`, originalImage: intensityInputImage, generatedImage: url, prompt: `Mastering: ${customMood}`, timestamp: Date.now(), ratio };
+          const prompt = `Mastering: [Color:${intensityParams.color.name}(${intensityParams.color.weight}%)] [Light:${intensityParams.lighting.name}(${intensityParams.lighting.weight}%)] [Text:${intensityParams.texture.name}(${intensityParams.texture.weight}%)] [Grading:${intensityParams.grading.name}(${intensityParams.grading.weight}%)]`;
+          return { id: `${Date.now()}-${idx}`, originalImage: intensityInputImage, generatedImage: url, prompt, timestamp: Date.now(), ratio };
         }));
         setAtmosphereHistory(prev => [...newRecords, ...prev].slice(0, 100));
         setStatus(AppStatus.IDLE);
@@ -504,28 +531,80 @@ const App: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
             onMouseDown={handleMouseDown}
           >
-            <img 
-              src={isFullscreenComparing ? fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url : fullscreenData.images[fullscreenData.currentIndex].url} 
-              className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl transition-transform duration-200 ease-out" 
-              style={{ 
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                pointerEvents: zoom > 1 ? 'none' : 'auto'
-              }}
-            />
+            <div className="relative w-full h-full flex items-center justify-center">
+              {fullscreenCompareMode === 'difference' && isFullscreenComparing ? (
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <img 
+                    src={fullscreenData.images[fullscreenData.currentIndex].initial || fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url} 
+                    className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl" 
+                    style={{ 
+                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                      pointerEvents: zoom > 1 ? 'none' : 'auto'
+                    }}
+                  />
+                  <img 
+                    src={fullscreenData.images[fullscreenData.currentIndex].url} 
+                    className="absolute inset-0 m-auto max-w-full max-h-[90vh] object-contain mix-blend-difference" 
+                    style={{ 
+                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                      filter: 'invert(1) grayscale(1) contrast(2)',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                </div>
+              ) : (
+                <img 
+                  src={isFullscreenComparing 
+                    ? (fullscreenCompareMode === 'original' 
+                        ? (fullscreenData.images[fullscreenData.currentIndex].initial || fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url)
+                        : (fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url))
+                    : fullscreenData.images[fullscreenData.currentIndex].url} 
+                  className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl transition-transform duration-200 ease-out" 
+                  style={{ 
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                    pointerEvents: zoom > 1 ? 'none' : 'auto'
+                  }}
+                />
+              )}
+            </div>
+
             <div className="absolute top-8 right-8 flex items-center gap-4 z-20">
                {fullscreenData.images[fullscreenData.currentIndex].original && (
-                 <button 
-                   onMouseDown={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }} 
-                   onMouseUp={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }} 
-                   onMouseLeave={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
-                   className={`p-3 rounded-full transition-all shadow-2xl border border-white/10 ${isFullscreenComparing ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-indigo-600'}`}
-                   onClick={(e) => e.stopPropagation()}
-                   title="Hold to Compare"
-                 >
-                   <ArrowPathIcon className="w-6 h-6" />
-                 </button>
+                 <div className="flex flex-col items-end gap-3">
+                   <div className="flex bg-black/80 p-1 rounded-xl border border-white/10 backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
+                     <button 
+                       onClick={() => setFullscreenCompareMode('previous')}
+                       className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'previous' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                     >
+                       VS PREVIOUS
+                     </button>
+                     <button 
+                       onClick={() => setFullscreenCompareMode('original')}
+                       className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'original' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                     >
+                       VS ORIGINAL
+                     </button>
+                     <button 
+                       onClick={() => setFullscreenCompareMode('difference')}
+                       className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'difference' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                     >
+                       DIFF MAP
+                     </button>
+                   </div>
+                   <button 
+                     onMouseDown={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }} 
+                     onMouseUp={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }} 
+                     onMouseLeave={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                     onTouchStart={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }}
+                     onTouchEnd={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                     className={`px-8 py-3 rounded-full transition-all shadow-2xl border border-white/10 font-black text-[12px] uppercase tracking-widest ${isFullscreenComparing ? 'bg-white text-black' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
+                     onClick={(e) => e.stopPropagation()}
+                   >
+                     {fullscreenCompareMode === 'difference' ? 'HOLD TO VIEW DIFF' : 'HOLD TO COMPARE'}
+                   </button>
+                 </div>
                )}
-               <button onClick={() => { setFullscreenData(null); setIsFullscreenComparing(false); setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-3 bg-white/10 rounded-full text-white hover:bg-red-600 transition-all shadow-2xl border border-white/10"><XMarkIcon className="w-6 h-6" /></button>
+               <button onClick={() => { setFullscreenData(null); setIsFullscreenComparing(false); setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-3 bg-white/10 rounded-full text-white hover:bg-red-600 transition-all shadow-2xl border border-white/10 self-start"><XMarkIcon className="w-6 h-6" /></button>
             </div>
             {zoom > 1 && (
               <div className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white uppercase tracking-widest pointer-events-none">
@@ -580,11 +659,15 @@ const App: React.FC = () => {
             lightingPrompt={lightingPrompt} setLightingPrompt={setLightingPrompt}
             backgroundPrompt={backgroundPrompt} setBackgroundPrompt={setBackgroundPrompt}
             moodPrompt={moodPrompt} setMoodPrompt={setMoodPrompt}
-            selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} processEditing={processEditing} downloadImage={downloadImage} onSelectHistory={(idx) => setFullscreenData({ images: synthesisHistory.map(h => ({ url: h.generatedImage, original: h.originalImage })), currentIndex: idx })} onTransferToIntensity={useAsIntensityRef} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClearCategory={handleClearCategory} onOpenFullscreen={(url, original) => setFullscreenData({ images: [{ url, original }], currentIndex: 0 })}
+            selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} processEditing={processEditing} downloadImage={downloadImage} onSelectHistory={(idx) => setFullscreenData({ images: synthesisHistory.map(h => ({ url: h.generatedImage, original: h.originalImage })), currentIndex: idx })} onTransferToIntensity={useAsIntensityRef} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClearCategory={handleClearCategory} onOpenFullscreen={(url, original, initial) => setFullscreenData({ images: [{ url, original, initial }], currentIndex: 0 })}
           />
         ) : (
           <IntensityTab
-            inputImage={intensityInputImage} setInputImage={setIntensityInputImage} outputImage={intensityOutputImage} status={status} history={atmosphereHistory} setHistory={setAtmosphereHistory} selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage })), currentIndex: idx })} onOpenFullscreen={(url, original) => setFullscreenData({ images: [{ url, original }], currentIndex: 0 })} onTransferToInput={(url) => setIntensityInputImage(url)}
+            inputImage={intensityInputImage} setInputImage={setIntensityInputImage} 
+            initialImage={intensityInitialImage} setInitialImage={setIntensityInitialImage}
+            outputImage={intensityOutputImage} status={status} history={atmosphereHistory} setHistory={setAtmosphereHistory} selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} 
+            params={intensityParams} setParams={setIntensityParams}
+            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, initial: intensityInitialImage || undefined })), currentIndex: idx })} onOpenFullscreen={(url, original, initial) => setFullscreenData({ images: [{ url, original, initial }], currentIndex: 0 })} onTransferToInput={(url) => setIntensityInputImage(url)}
           />
         )}
       </main>
