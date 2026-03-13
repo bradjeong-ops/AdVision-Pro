@@ -49,7 +49,7 @@ interface BlendTabProps {
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>, options?: any) => void;
   handleDropUpload: (e: React.DragEvent<HTMLDivElement>, options?: any) => void;
   onClearCategory: (cat: any) => void;
-  onOpenFullscreen: (url: string, original?: string) => void;
+  onOpenFullscreen: (url: string, original?: string, initial?: string) => void;
 }
 
 const BlendTab: React.FC<BlendTabProps> = ({
@@ -107,7 +107,7 @@ const BlendTab: React.FC<BlendTabProps> = ({
                 <>
                   <img src={isComparing ? inputImage! : outputImage} className="w-full h-full object-contain" />
                   <div className="absolute top-4 right-4 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => onOpenFullscreen(outputImage, inputImage || undefined)} className="w-10 h-10 bg-black/60 rounded-full text-white hover:bg-blue-600 flex items-center justify-center border border-white/10" title="Maximize">
+                    <button onClick={() => onOpenFullscreen(outputImage, inputImage || undefined)} className="w-10 h-10 bg-black/60 rounded-full text-white hover:bg-blue-600 flex items-center justify-center border border-white/10" title="Maximize & Compare">
                       <ArrowsPointingOutIcon className="w-5 h-5" />
                     </button>
                     <button onClick={() => onTransferToIntensity(outputImage)} className="w-10 h-10 bg-black/60 rounded-full text-emerald-400 hover:text-white hover:bg-emerald-600 flex items-center justify-center border border-white/10" title="Transfer to Intensity">
