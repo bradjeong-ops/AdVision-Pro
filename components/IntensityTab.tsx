@@ -46,12 +46,14 @@ const INTENSITY_OPTIONS = {
   ],
   grading: [
     { id: 'None', name: 'None', description: 'No grading adjustment' },
-    { id: 'Kodak Style', name: 'Kodak Style', description: '클래식 코닥 필름 에뮬레이션' },
-    { id: 'Fuji Style', name: 'Fuji Style', description: '청량한 후지 필름 에뮬레이션' },
+    { id: 'Neutral Clean', name: 'Neutral Clean', description: '색 왜곡 없는 깨끗하고 선명한 상업용 룩' },
+    { id: 'Cold Steel', name: 'Cold Steel', description: '차갑고 날카로운 금속성 블루 톤' },
+    { id: 'Nordic Minimal', name: 'Nordic Minimal', description: '채도가 낮고 정갈한 북유럽 감성' },
+    { id: 'Kodak Style', name: 'Kodak Style', description: '클래식 코닥 필름의 따뜻한 에뮬레이션' },
+    { id: 'Fuji Style', name: 'Fuji Style', description: '청량하고 깨끗한 후지 필름 에뮬레이션' },
+    { id: 'Ektachrome', name: 'Ektachrome', description: '선명한 블루와 높은 대비의 슬라이드 필름 룩' },
     { id: 'Noir', name: 'Noir', description: '깊이 있는 흑백 시네마틱 룩' },
     { id: 'Cyberpunk', name: 'Cyberpunk', description: '네온 컬러의 미래지향적 무드' },
-    { id: 'Film Grain', name: 'Film Grain', description: '아날로그 잡지 느낌의 거친 입자' },
-    { id: 'Vignette', name: 'Vignette', description: '주변부 광량 저하 효과' },
   ]
 };
 
