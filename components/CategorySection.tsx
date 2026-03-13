@@ -13,6 +13,7 @@ interface CategoryData {
     face: string | null;
   };
   details: string[];
+  items: string[];
   isAnalyzing: boolean;
 }
 
@@ -46,7 +47,7 @@ const CategorySection = memo(({
   onClear
 }: CategorySectionProps) => {
   const data = categorizedProducts[category];
-  const subTitle = category === 'other' ? "GLOBAL PROPS" : "PRIMARY SUBJECT";
+  const subTitle = category === 'other' ? "PRODUCT ASSETS" : "PRIMARY SUBJECT";
   const bulkInputRef = useRef<HTMLInputElement>(null);
   const [showFaceDetail, setShowFaceDetail] = useState(data.mains.face !== null);
 
@@ -121,47 +122,17 @@ const CategorySection = memo(({
       </div>
       
       <div className="flex flex-col gap-4">
-        <div className="flex gap-3">
-          {renderSlot('front', frontInputRef, 'FRONT')}
-          {renderSlot('side', sideInputRef, 'SIDE')}
-          {renderSlot('back', backInputRef, 'BACK')}
-        </div>
-
-        {category !== 'other' && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 px-1">
-              <button 
-                onClick={() => setShowFaceDetail(!showFaceDetail)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[9px] font-black uppercase tracking-widest ${showFaceDetail ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-400' : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300'}`}
-              >
-                <UserIcon className="w-3.5 h-3.5" />
-                {showFaceDetail ? 'FACE DETAIL ACTIVE' : 'ADD FACE DETAIL'}
-              </button>
-              {showFaceDetail && !data.mains.face && (
-                <span className="text-[8px] text-slate-600 font-bold animate-pulse">← UPLOAD FACE DETAIL FOR BETTER RESULTS</span>
-              )}
-            </div>
-            
-            {showFaceDetail && (
-              <div className="flex gap-3 animate-in slide-in-from-top-2 duration-300">
-                {renderSlot('face', faceInputRef, 'FACE DETAIL')}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div 
-          className={`bg-[#0b0f1a] rounded-[24px] p-5 mt-2 transition-all duration-300 border-2 border-transparent hover:border-indigo-500/30`}
-          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onDrop={(e) => handleDropUpload(e, { category, type: 'detail' })}
-        >
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 px-1">ITEMS</p>
-          <div className="flex flex-wrap gap-3">
-            {data.details.map((img, idx) => (
-              <div key={idx} className="relative w-[60px] h-[60px] rounded-[14px] overflow-hidden border border-white/5 bg-black group/item shadow-inner transition-all hover:scale-105">
+        {category === 'other' ? (
+          <div 
+            className="grid grid-cols-4 sm:grid-cols-5 gap-3 bg-[#0b0f1a] rounded-[24px] p-5 border-2 border-transparent hover:border-indigo-500/30 transition-all"
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDrop={(e) => handleDropUpload(e, { category, type: 'main' })}
+          >
+            {data.items.map((img, idx) => (
+              <div key={idx} className="relative aspect-square rounded-[14px] overflow-hidden border border-white/5 bg-black group/item shadow-inner transition-all hover:scale-105">
                 <img src={img} className="w-full h-full object-cover animate-in fade-in" />
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setCategorizedProducts(p => ({ ...p, [category]: { ...p[category], details: p[category].details.filter((_, i) => i !== idx) } })); }} 
+                  onClick={(e) => { e.stopPropagation(); setCategorizedProducts(p => ({ ...p, [category]: { ...p[category], items: p[category].items.filter((_, i) => i !== idx) } })); }} 
                   className="absolute inset-0 bg-red-600/60 opacity-0 group-hover/item:opacity-100 flex items-center justify-center transition-all text-white"
                 >
                   <TrashIcon className="w-4 h-4" />
@@ -169,16 +140,75 @@ const CategorySection = memo(({
               </div>
             ))}
             <div 
-              className="w-[60px] h-[60px] bg-[#161d2b] border border-dashed border-slate-700/50 rounded-[14px] flex items-center justify-center cursor-pointer hover:border-indigo-500/50 transition-all group active:scale-95" 
+              className="aspect-square bg-[#161d2b] border border-dashed border-slate-700/50 rounded-[14px] flex items-center justify-center cursor-pointer hover:border-indigo-500/50 transition-all group active:scale-95" 
               onClick={(e) => {
                 e.stopPropagation();
-                detailInputRef.current?.click();
+                frontInputRef.current?.click();
               }}
             >
               <PlusIcon className="w-6 h-6 text-slate-600 group-hover:text-indigo-500/60" />
             </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex gap-3">
+              {renderSlot('front', frontInputRef, 'FRONT')}
+              {renderSlot('side', sideInputRef, 'SIDE')}
+              {renderSlot('back', backInputRef, 'BACK')}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 px-1">
+                <button 
+                  onClick={() => setShowFaceDetail(!showFaceDetail)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[9px] font-black uppercase tracking-widest ${showFaceDetail ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-400' : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300'}`}
+                >
+                  <UserIcon className="w-3.5 h-3.5" />
+                  {showFaceDetail ? 'FACE DETAIL ACTIVE' : 'ADD FACE DETAIL'}
+                </button>
+                {showFaceDetail && !data.mains.face && (
+                  <span className="text-[8px] text-slate-600 font-bold animate-pulse">← UPLOAD FACE DETAIL FOR BETTER RESULTS</span>
+                )}
+              </div>
+              
+              {showFaceDetail && (
+                <div className="flex gap-3 animate-in slide-in-from-top-2 duration-300">
+                  {renderSlot('face', faceInputRef, 'FACE DETAIL')}
+                </div>
+              )}
+            </div>
+
+            <div 
+              className={`bg-[#0b0f1a] rounded-[24px] p-5 mt-2 transition-all duration-300 border-2 border-transparent hover:border-indigo-500/30`}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDrop={(e) => handleDropUpload(e, { category, type: 'detail' })}
+            >
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 px-1">ITEMS</p>
+              <div className="flex flex-wrap gap-3">
+                {data.details.map((img, idx) => (
+                  <div key={idx} className="relative w-[60px] h-[60px] rounded-[14px] overflow-hidden border border-white/5 bg-black group/item shadow-inner transition-all hover:scale-105">
+                    <img src={img} className="w-full h-full object-cover animate-in fade-in" />
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setCategorizedProducts(p => ({ ...p, [category]: { ...p[category], details: p[category].details.filter((_, i) => i !== idx) } })); }} 
+                      className="absolute inset-0 bg-red-600/60 opacity-0 group-hover/item:opacity-100 flex items-center justify-center transition-all text-white"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <div 
+                  className="w-[60px] h-[60px] bg-[#161d2b] border border-dashed border-slate-700/50 rounded-[14px] flex items-center justify-center cursor-pointer hover:border-indigo-500/50 transition-all group active:scale-95" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    detailInputRef.current?.click();
+                  }}
+                >
+                  <PlusIcon className="w-6 h-6 text-slate-600 group-hover:text-indigo-500/60" />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
       <input type="file" multiple ref={detailInputRef} onChange={(e) => handleFileUpload(e, { category, type: 'detail' })} accept="image/*" className="hidden" />
       <input type="file" multiple ref={bulkInputRef} onChange={(e) => handleFileUpload(e, { category, type: 'bulk' })} accept="image/*" className="hidden" />
