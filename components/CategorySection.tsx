@@ -143,7 +143,7 @@ const CategorySection = memo(({
               className="aspect-square bg-[#161d2b] border border-dashed border-slate-700/50 rounded-[14px] flex items-center justify-center cursor-pointer hover:border-indigo-500/50 transition-all group active:scale-95" 
               onClick={(e) => {
                 e.stopPropagation();
-                frontInputRef.current?.click();
+                detailInputRef.current?.click();
               }}
             >
               <PlusIcon className="w-6 h-6 text-slate-600 group-hover:text-indigo-500/60" />
