@@ -237,10 +237,10 @@ const weightToAdjective = (weight: number, positive: string) => {
 export const adjustAtmosphere = async (
   base64Image: string,
   params: {
-    color: { name: string; weight: number };
-    lighting: { name: string; weight: number };
-    texture: { name: string; weight: number };
-    grading: { name: string; weight: number };
+    color: { selections: string[]; weight: number };
+    lighting: { selections: string[]; weight: number };
+    texture: { selections: string[]; weight: number };
+    grading: { selections: string[]; weight: number };
   },
   aspectRatio: AllowedAspectRatio = "9:16",
   quality: ImageQuality = "2K",
@@ -249,10 +249,10 @@ export const adjustAtmosphere = async (
 ): Promise<string[]> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
-  const colorDesc = params.color.name !== 'None' ? weightToAdjective(params.color.weight, params.color.name) : 'None';
-  const lightingDesc = params.lighting.name !== 'None' ? weightToAdjective(params.lighting.weight, params.lighting.name) : 'None';
-  const textureDesc = params.texture.name !== 'None' ? weightToAdjective(params.texture.weight, params.texture.name) : 'None';
-  const gradingDesc = params.grading.name !== 'None' ? weightToAdjective(params.grading.weight, params.grading.name) : 'None';
+  const colorDesc = params.color.selections.length > 0 ? weightToAdjective(params.color.weight, params.color.selections.join(', ')) : 'None';
+  const lightingDesc = params.lighting.selections.length > 0 ? weightToAdjective(params.lighting.weight, params.lighting.selections.join(', ')) : 'None';
+  const textureDesc = params.texture.selections.length > 0 ? weightToAdjective(params.texture.weight, params.texture.selections.join(', ')) : 'None';
+  const gradingDesc = params.grading.selections.length > 0 ? weightToAdjective(params.grading.weight, params.grading.selections.join(', ')) : 'None';
 
   const singleTask = async (index: number) => {
     const parts: any[] = [
