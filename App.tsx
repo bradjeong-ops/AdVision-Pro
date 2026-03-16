@@ -5,6 +5,7 @@ import {
   ArrowPathIcon, 
   CheckBadgeIcon, 
   XMarkIcon,
+  ArrowDownTrayIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ExclamationTriangleIcon,
@@ -384,7 +385,7 @@ const App: React.FC = () => {
   };
 
   const processAdjustment = async (useInitial: boolean = false) => {
-    const targetImage = useInitial ? intensityInitialImage : intensityInputImage;
+    const targetImage = useInitial ? (intensityInitialImage || intensityInputImage) : intensityInputImage;
     if (!targetImage) return;
     if (!hasApiKey) { await handleOpenKeyDialog(); return; }
     setStatus(AppStatus.GENERATING);
@@ -580,40 +581,92 @@ const App: React.FC = () => {
 
             <div className="absolute top-8 right-8 flex items-center gap-4 z-20">
                {fullscreenData.images[fullscreenData.currentIndex].original && (
-                 <div className="flex flex-col items-end gap-3">
-                   <div className="flex bg-black/80 p-1 rounded-xl border border-white/10 backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
-                     <button 
-                       onClick={() => setFullscreenCompareMode('previous')}
-                       className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'previous' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                     >
-                       VS PREVIOUS
-                     </button>
-                     <button 
-                       onClick={() => setFullscreenCompareMode('original')}
-                       className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'original' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                     >
-                       VS ORIGINAL
-                     </button>
-                     <button 
-                       onClick={() => setFullscreenCompareMode('difference')}
-                       className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'difference' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                     >
-                       DIFF MAP
-                     </button>
-                   </div>
-                   <button 
-                     onMouseDown={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }} 
-                     onMouseUp={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }} 
-                     onMouseLeave={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
-                     onTouchStart={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }}
-                     onTouchEnd={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
-                     className={`px-8 py-3 rounded-full transition-all shadow-2xl border border-white/10 font-black text-[12px] uppercase tracking-widest ${isFullscreenComparing ? 'bg-white text-black' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
-                     onClick={(e) => e.stopPropagation()}
-                   >
-                     {fullscreenCompareMode === 'difference' ? 'HOLD TO VIEW DIFF' : 'HOLD TO COMPARE'}
-                   </button>
-                 </div>
-               )}
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex bg-black/80 p-1 rounded-xl border border-white/10 backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        onClick={() => setFullscreenCompareMode('previous')}
+                        className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'previous' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        VS PREVIOUS
+                      </button>
+                      <button 
+                        onClick={() => setFullscreenCompareMode('original')}
+                        className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'original' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        VS ORIGINAL
+                      </button>
+                      <button 
+                        onClick={() => setFullscreenCompareMode('difference')}
+                        className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'difference' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                      >
+                        DIFF MAP
+                      </button>
+                    </div>
+                    <button 
+                      onMouseDown={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }} 
+                      onMouseUp={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }} 
+                      onMouseLeave={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                      onTouchStart={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }}
+                      onTouchEnd={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                      className={`px-8 py-3 rounded-full transition-all shadow-2xl border border-white/10 font-black text-[12px] uppercase tracking-widest ${isFullscreenComparing ? 'bg-white text-black' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {fullscreenCompareMode === 'difference' ? 'HOLD TO VIEW DIFF' : 'HOLD TO COMPARE'}
+                    </button>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        onClick={() => downloadImage(fullscreenData.images[fullscreenData.currentIndex].url, 'AdVisionPro_Export.png')}
+                        className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full border border-white/10 transition-all flex items-center justify-center shadow-xl"
+                        title="Download"
+                      >
+                        <ArrowDownTrayIcon className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const url = fullscreenData.images[fullscreenData.currentIndex].url;
+                          if (activeTab === 'atmosphere') {
+                            setIntensityInputImage(url);
+                          } else {
+                            setBlendInputImage(url);
+                          }
+                          setFullscreenData(null);
+                        }}
+                        className="p-3 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 rounded-full border border-indigo-500/30 transition-all flex items-center justify-center shadow-xl"
+                        title="Set as Base"
+                      >
+                        <ArrowPathIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {!fullscreenData.images[fullscreenData.currentIndex].original && (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        onClick={() => downloadImage(fullscreenData.images[fullscreenData.currentIndex].url, 'AdVisionPro_Export.png')}
+                        className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full border border-white/10 transition-all flex items-center justify-center shadow-xl"
+                        title="Download"
+                      >
+                        <ArrowDownTrayIcon className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          const url = fullscreenData.images[fullscreenData.currentIndex].url;
+                          if (activeTab === 'atmosphere') {
+                            setIntensityInputImage(url);
+                          } else {
+                            setBlendInputImage(url);
+                          }
+                          setFullscreenData(null);
+                        }}
+                        className="p-3 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 rounded-full border border-indigo-500/30 transition-all flex items-center justify-center shadow-xl"
+                        title="Set as Base"
+                      >
+                        <ArrowPathIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                <button onClick={() => { setFullscreenData(null); setIsFullscreenComparing(false); setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-3 bg-white/10 rounded-full text-white hover:bg-red-600 transition-all shadow-2xl border border-white/10 self-start"><XMarkIcon className="w-6 h-6" /></button>
             </div>
             {zoom > 1 && (
@@ -677,7 +730,7 @@ const App: React.FC = () => {
             initialImage={intensityInitialImage} setInitialImage={setIntensityInitialImage}
             outputImage={intensityOutputImage} status={status} history={atmosphereHistory} setHistory={setAtmosphereHistory} selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} 
             params={intensityParams} setParams={setIntensityParams}
-            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} resetIntensityParams={resetIntensityParams} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, initial: intensityInitialImage || undefined })), currentIndex: idx })} onOpenFullscreen={(url, original, initial) => setFullscreenData({ images: [{ url, original, initial }], currentIndex: 0 })} onTransferToInput={(url) => setIntensityInputImage(url)}
+            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} resetIntensityParams={resetIntensityParams} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, initial: intensityInitialImage || undefined })), currentIndex: idx })} onOpenFullscreen={(url, original, initial) => setFullscreenData({ images: [{ url, original, initial }], currentIndex: 0 })} onTransferToInput={(url) => { setIntensityInputImage(url); if (!intensityInitialImage) setIntensityInitialImage(url); }}
           />
         )}
       </main>
