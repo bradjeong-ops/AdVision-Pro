@@ -169,6 +169,7 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeStep, setActiveStep] = useState<keyof typeof INTENSITY_OPTIONS>('color');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [isComparing, setIsComparing] = useState(false);
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups(prev => ({
@@ -228,12 +229,12 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
           <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-2">CREATION</label>
           <div 
             className={`relative flex items-center justify-center bg-black/60 rounded-3xl border-2 border-white/5 overflow-hidden h-full shadow-2xl group ${outputImage ? 'cursor-zoom-in' : ''}`}
-            onClick={() => outputImage && onOpenFullscreen(outputImage, inputImage || undefined, initialImage || undefined)}
+            onClick={() => outputImage && !isComparing && onOpenFullscreen(outputImage, inputImage || undefined, initialImage || undefined)}
           >
             {outputImage ? (
               <>
                 <div className="relative w-full h-full bg-black">
-                  <img src={outputImage} className="w-full h-full object-contain" />
+                  <img src={isComparing ? inputImage! : outputImage} className="w-full h-full object-contain" />
                 </div>
                 <div className="absolute top-4 right-4 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => e.stopPropagation()}>
                   <button onClick={() => onOpenFullscreen(outputImage, inputImage || undefined, initialImage || undefined)} className="w-10 h-10 bg-black/60 rounded-full text-white hover:bg-blue-600 flex items-center justify-center border border-white/10" title="Maximize & Compare">
@@ -241,6 +242,15 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
                   </button>
                   <button onClick={() => downloadImage(outputImage, 'AdvisionPro_Mastered_Image.png')} className="w-10 h-10 bg-black/60 rounded-full text-white hover:bg-indigo-600 flex items-center justify-center border border-white/10" title="Download">
                     <ArrowDownTrayIcon className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onMouseDown={() => setIsComparing(true)} 
+                    onMouseUp={() => setIsComparing(false)} 
+                    onMouseLeave={() => setIsComparing(false)} 
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all border border-white/10 ${isComparing ? 'bg-white text-black' : 'bg-black/60 text-white'}`} 
+                    title="Compare with Reference"
+                  >
+                    <ArrowPathIcon className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
