@@ -154,7 +154,7 @@ interface IntensityTabProps {
   handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>, options?: any) => void;
   handleDropUpload: (e: React.DragEvent<HTMLDivElement>, options?: any) => void;
   onSelectHistory: (idx: number) => void;
-  onOpenFullscreen: (url: string, original?: string) => void;
+  onOpenFullscreen: (url: string, original?: string, initial?: string, productionGuide?: any) => void;
   onTransferToInput: (url: string) => void;
 }
 
