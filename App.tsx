@@ -696,6 +696,39 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Comparison Controls */}
+                {fullscreenData.images[fullscreenData.currentIndex].original && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-3 bg-indigo-500/50 rounded-full" />
+                      <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-500">Comparison Controls</h4>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { mode: 'previous' as const, icon: HistoryIcon, label: 'Prev' },
+                        { mode: 'original' as const, icon: PhotoIcon, label: 'Orig' },
+                        { mode: 'difference' as const, icon: Square2StackIcon, label: 'Diff' },
+                      ].map((item) => (
+                        <button
+                          key={item.mode}
+                          onMouseDown={(e) => { e.stopPropagation(); setFullscreenCompareMode(item.mode); setIsFullscreenComparing(true); }}
+                          onMouseUp={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                          onMouseLeave={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                          className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
+                            isFullscreenComparing && fullscreenCompareMode === item.mode
+                              ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/20'
+                              : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          <item.icon className="w-4 h-4" />
+                          <span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[8px] text-slate-600 italic text-center">Hold button to compare with result</p>
+                  </div>
+                )}
+
                 {/* Production Guide Display */}
                 {fullscreenData.images[fullscreenData.currentIndex].productionGuide && (
                   <div className="flex-1 flex flex-col gap-4 overflow-hidden">
