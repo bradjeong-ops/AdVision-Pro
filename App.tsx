@@ -14,7 +14,8 @@ import {
   ClipboardIcon,
   HistoryIcon,
   PhotoIcon,
-  Square2StackIcon
+  Square2StackIcon,
+  XCircleIcon
 } from './components/Icons';
 import { AppStatus, GenerationRecord, ProductionGuide } from './types';
 import { 
@@ -99,18 +100,18 @@ const App: React.FC = () => {
     other: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false }
   });
 
-  const [overallPrompt, setOverallPrompt] = useState(BASE_SYNTHESIS_PROMPT);
-  const [cameraPrompt, setCameraPrompt] = useState('');
-  const [lightingPrompt, setLightingPrompt] = useState('');
-  const [backgroundPrompt, setBackgroundPrompt] = useState('');
-  const [moodPrompt, setMoodPrompt] = useState('');
+  const [coreProductionPrompt, setCoreProductionPrompt] = useState(BASE_SYNTHESIS_PROMPT);
+  const [cameraCompositionPrompt, setCameraCompositionPrompt] = useState('');
+  const [setBackgroundPrompt, setSetBackgroundPrompt] = useState('');
+  const [lightingMoodPrompt, setLightingMoodPrompt] = useState('');
+  const [textureTechnicalPrompt, setTextureTechnicalPrompt] = useState('');
   const [selectedRatio, setSelectedRatio] = useState<AllowedAspectRatio>("9:16");
   const [isFullscreenComparing, setIsFullscreenComparing] = useState(false);
   const [fullscreenCompareMode, setFullscreenCompareMode] = useState<'previous' | 'original' | 'difference'>('previous');
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string, type: 'success' | 'info' } | null>(null);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'info' | 'error' } | null>(null);
 
-  const showToast = useCallback((message: string, type: 'success' | 'info' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
   }, []);
@@ -269,12 +270,15 @@ const App: React.FC = () => {
             setBlendInputImage(result); setBlendOutputImage(null); setIsAnalyzing(true);
             try {
               const analysis = await analyzeReferenceImage(result);
-              setOverallPrompt(`${BASE_SYNTHESIS_PROMPT}\n\n[OVERALL ANALYSIS]\n${analysis.overall}`);
-              setCameraPrompt(analysis.camera);
-              setLightingPrompt(analysis.lighting);
-              setBackgroundPrompt(analysis.background);
-              setMoodPrompt(analysis.mood);
-            } catch (err) { console.error(err); } finally { setIsAnalyzing(false); }
+              setCoreProductionPrompt(`${BASE_SYNTHESIS_PROMPT}\n\n[CORE PRODUCTION]\n${analysis.coreProduction}`);
+              setCameraCompositionPrompt(analysis.cameraComposition);
+              setSetBackgroundPrompt(analysis.setBackground);
+              setLightingMoodPrompt(analysis.lightingMood);
+              setTextureTechnicalPrompt(analysis.textureTechnical);
+            } catch (err: any) { 
+              console.error(err); 
+              showToast(err.message || '이미지 분석 중 오류가 발생했습니다.', 'error');
+            } finally { setIsAnalyzing(false); }
           } else { 
             setIntensityInputImage(result); 
             setIntensityOutputImage(null); 
@@ -357,11 +361,11 @@ const App: React.FC = () => {
 
   const processEditing = async () => {
     const combinedPrompt = `
-      [OVERALL_GUIDE]: ${overallPrompt}
-      [CAMERA_GUIDE]: ${cameraPrompt}
-      [LIGHTING_GUIDE]: ${lightingPrompt}
-      [BACKGROUND_GUIDE]: ${backgroundPrompt}
-      [MOOD_GUIDE]: ${moodPrompt}
+      [CORE_PRODUCTION]: ${coreProductionPrompt}
+      [CAMERA_COMPOSITION]: ${cameraCompositionPrompt}
+      [SET_BACKGROUND]: ${setBackgroundPrompt}
+      [LIGHTING_MOOD]: ${lightingMoodPrompt}
+      [TEXTURE_TECHNICAL]: ${textureTechnicalPrompt}
     `.trim();
 
     if (!combinedPrompt) return;
@@ -385,11 +389,11 @@ const App: React.FC = () => {
             timestamp: Date.now(), 
             ratio,
             productionGuide: {
-              overall: overallPrompt,
-              camera: cameraPrompt,
-              lighting: lightingPrompt,
-              background: backgroundPrompt,
-              mood: moodPrompt
+              coreProduction: coreProductionPrompt,
+              cameraComposition: cameraCompositionPrompt,
+              setBackground: setBackgroundPrompt,
+              lightingMood: lightingMoodPrompt,
+              textureTechnical: textureTechnicalPrompt
             }
           };
         }));
@@ -706,12 +710,12 @@ const App: React.FC = () => {
                         onClick={() => {
                           const guide = fullscreenData.images[fullscreenData.currentIndex].productionGuide;
                           if (guide) {
-                            if (guide.overall) setOverallPrompt(guide.overall);
-                            if (guide.camera) setCameraPrompt(guide.camera);
-                            if (guide.lighting) setLightingPrompt(guide.lighting);
-                            if (guide.background) setBackgroundPrompt(guide.background);
-                            if (guide.mood) setMoodPrompt(guide.mood);
-                            const text = `Overall: ${guide.overall || ''}\nCamera: ${guide.camera || ''}\nLighting: ${guide.lighting || ''}\nBackground: ${guide.background || ''}\nMood: ${guide.mood || ''}`;
+                            if (guide.coreProduction) setCoreProductionPrompt(guide.coreProduction);
+                            if (guide.cameraComposition) setCameraCompositionPrompt(guide.cameraComposition);
+                            if (guide.setBackground) setSetBackgroundPrompt(guide.setBackground);
+                            if (guide.lightingMood) setLightingMoodPrompt(guide.lightingMood);
+                            if (guide.textureTechnical) setTextureTechnicalPrompt(guide.textureTechnical);
+                            const text = `Core Production: ${guide.coreProduction || ''}\nCamera & Composition: ${guide.cameraComposition || ''}\nSet & Background: ${guide.setBackground || ''}\nLighting & Mood: ${guide.lightingMood || ''}\nTexture & Technical: ${guide.textureTechnical || ''}`;
                             navigator.clipboard.writeText(text);
                             showToast('All guides applied and copied');
                           }
@@ -725,11 +729,11 @@ const App: React.FC = () => {
                     
                     <div className="flex-1 overflow-y-auto pr-2 space-y-6 scrollbar-hide">
                       {[
-                        { label: 'Overall', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.overall, setter: setOverallPrompt },
-                        { label: 'Camera', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.camera, setter: setCameraPrompt },
-                        { label: 'Lighting', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.lighting, setter: setLightingPrompt },
-                        { label: 'Background', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.background, setter: setBackgroundPrompt },
-                        { label: 'Mood', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.mood, setter: setMoodPrompt },
+                        { label: 'Core Production', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.coreProduction, setter: setCoreProductionPrompt },
+                        { label: 'Camera & Composition', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.cameraComposition, setter: setCameraCompositionPrompt },
+                        { label: 'Set & Background', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.setBackground, setter: setSetBackgroundPrompt },
+                        { label: 'Lighting & Mood', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.lightingMood, setter: setLightingMoodPrompt },
+                        { label: 'Texture & Technical', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.textureTechnical, setter: setTextureTechnicalPrompt },
                       ].map((guide, i) => guide.text && (
                         <div key={i} className="flex flex-col gap-2 group/item">
                           <div className="flex items-center justify-between">
@@ -820,11 +824,11 @@ const App: React.FC = () => {
         {activeTab === 'synthesis' ? (
           <BlendTab
             inputImage={blendInputImage} setInputImage={setBlendInputImage} outputImage={blendOutputImage} status={status} isAnalyzing={isAnalyzing} history={synthesisHistory} setHistory={setSynthesisHistory} categorizedProducts={categorizedProducts} setCategorizedProducts={setCategorizedProducts} 
-            overallPrompt={overallPrompt} setOverallPrompt={setOverallPrompt}
-            cameraPrompt={cameraPrompt} setCameraPrompt={setCameraPrompt}
-            lightingPrompt={lightingPrompt} setLightingPrompt={setLightingPrompt}
-            backgroundPrompt={backgroundPrompt} setBackgroundPrompt={setBackgroundPrompt}
-            moodPrompt={moodPrompt} setMoodPrompt={setMoodPrompt}
+            coreProductionPrompt={coreProductionPrompt} setCoreProductionPrompt={setCoreProductionPrompt}
+            cameraCompositionPrompt={cameraCompositionPrompt} setCameraCompositionPrompt={setCameraCompositionPrompt}
+            setBackgroundPrompt={setBackgroundPrompt} setSetBackgroundPrompt={setSetBackgroundPrompt}
+            lightingMoodPrompt={lightingMoodPrompt} setLightingMoodPrompt={setLightingMoodPrompt}
+            textureTechnicalPrompt={textureTechnicalPrompt} setTextureTechnicalPrompt={setTextureTechnicalPrompt}
             selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} processEditing={processEditing} downloadImage={downloadImage} onSelectHistory={(idx) => setFullscreenData({ images: synthesisHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, ratio: h.ratio, productionGuide: h.productionGuide })), currentIndex: idx })} onTransferToIntensity={useAsIntensityRef} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClearCategory={handleClearCategory} onOpenFullscreen={async (url, original, initial, productionGuide) => { const {ratio} = await getImageDimensions(url); setFullscreenData({ images: [{ url, original, initial, ratio, productionGuide }], currentIndex: 0 }); }}
           />
         ) : (
@@ -844,9 +848,11 @@ const App: React.FC = () => {
           <div className={`px-6 py-3 rounded-2xl backdrop-blur-xl border shadow-2xl flex items-center gap-3 ${
             toast.type === 'success' 
               ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' 
+              : toast.type === 'error'
+              ? 'bg-red-500/20 border-red-500/30 text-red-400'
               : 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
           }`}>
-            <CheckBadgeIcon className="w-5 h-5" />
+            {toast.type === 'success' ? <CheckBadgeIcon className="w-5 h-5" /> : toast.type === 'error' ? <XCircleIcon className="w-5 h-5" /> : <SparklesIcon className="w-5 h-5" />}
             <span className="text-sm font-bold tracking-tight">{toast.message}</span>
           </div>
         </div>
