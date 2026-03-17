@@ -26,16 +26,16 @@ interface BlendTabProps {
   setHistory: React.Dispatch<React.SetStateAction<GenerationRecord[]>>;
   categorizedProducts: any;
   setCategorizedProducts: any;
-  overallPrompt: string;
-  setOverallPrompt: (p: string) => void;
-  cameraPrompt: string;
-  setCameraPrompt: (p: string) => void;
-  lightingPrompt: string;
-  setLightingPrompt: (p: string) => void;
-  backgroundPrompt: string;
-  setBackgroundPrompt: (p: string) => void;
-  moodPrompt: string;
-  setMoodPrompt: (p: string) => void;
+  coreProductionPrompt: string;
+  setCoreProductionPrompt: (p: string) => void;
+  cameraCompositionPrompt: string;
+  setCameraCompositionPrompt: (p: string) => void;
+  setBackgroundPrompt: string;
+  setSetBackgroundPrompt: (p: string) => void;
+  lightingMoodPrompt: string;
+  setLightingMoodPrompt: (p: string) => void;
+  textureTechnicalPrompt: string;
+  setTextureTechnicalPrompt: (p: string) => void;
   selectedRatio: AllowedAspectRatio;
   setSelectedRatio: (r: AllowedAspectRatio) => void;
   selectedQuality: ImageQuality;
@@ -55,11 +55,11 @@ interface BlendTabProps {
 const BlendTab: React.FC<BlendTabProps> = ({
   inputImage, setInputImage, outputImage, status, isAnalyzing, history, setHistory,
   categorizedProducts, setCategorizedProducts, 
-  overallPrompt, setOverallPrompt,
-  cameraPrompt, setCameraPrompt,
-  lightingPrompt, setLightingPrompt,
-  backgroundPrompt, setBackgroundPrompt,
-  moodPrompt, setMoodPrompt,
+  coreProductionPrompt, setCoreProductionPrompt,
+  cameraCompositionPrompt, setCameraCompositionPrompt,
+  setBackgroundPrompt, setSetBackgroundPrompt,
+  lightingMoodPrompt, setLightingMoodPrompt,
+  textureTechnicalPrompt, setTextureTechnicalPrompt,
   selectedRatio, setSelectedRatio, selectedQuality, setSelectedQuality,
   selectedCount, setSelectedCount, processEditing, downloadImage,
   onSelectHistory, onTransferToIntensity, handleFileUpload, handleDropUpload, onClearCategory,
@@ -102,11 +102,11 @@ const BlendTab: React.FC<BlendTabProps> = ({
             <div 
               className={`relative flex items-center justify-center bg-black/60 rounded-3xl border-2 border-white/5 overflow-hidden h-[520px] shadow-2xl group ${outputImage ? 'cursor-zoom-in' : ''}`}
               onClick={() => outputImage && !isComparing && onOpenFullscreen(outputImage, inputImage || undefined, undefined, {
-                overall: overallPrompt,
-                camera: cameraPrompt,
-                lighting: lightingPrompt,
-                background: backgroundPrompt,
-                mood: moodPrompt
+                coreProduction: coreProductionPrompt,
+                cameraComposition: cameraCompositionPrompt,
+                setBackground: setBackgroundPrompt,
+                lightingMood: lightingMoodPrompt,
+                textureTechnical: textureTechnicalPrompt
               })}
             >
               {outputImage ? (
@@ -114,11 +114,11 @@ const BlendTab: React.FC<BlendTabProps> = ({
                   <img src={isComparing ? inputImage! : outputImage} className="w-full h-full object-contain" />
                   <div className="absolute top-4 right-4 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => onOpenFullscreen(outputImage, inputImage || undefined, undefined, {
-                      overall: overallPrompt,
-                      camera: cameraPrompt,
-                      lighting: lightingPrompt,
-                      background: backgroundPrompt,
-                      mood: moodPrompt
+                      coreProduction: coreProductionPrompt,
+                      cameraComposition: cameraCompositionPrompt,
+                      setBackground: setBackgroundPrompt,
+                      lightingMood: lightingMoodPrompt,
+                      textureTechnical: textureTechnicalPrompt
                     })} className="w-10 h-10 bg-black/60 rounded-full text-white hover:bg-blue-600 flex items-center justify-center border border-white/10" title="Maximize & Compare">
                       <ArrowsPointingOutIcon className="w-5 h-5" />
                     </button>
@@ -166,52 +166,52 @@ const BlendTab: React.FC<BlendTabProps> = ({
 
            <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2 col-span-2">
-              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Overall Production Guide</label>
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Core Production (Overall)</label>
               <textarea 
-                value={overallPrompt} 
-                onChange={(e) => setOverallPrompt(e.target.value)} 
+                value={coreProductionPrompt} 
+                onChange={(e) => setCoreProductionPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="Enter overall production guide..."
+                placeholder="Enter core production guide (theme, style)..."
                 className={`w-full h-20 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Camera & Composition Guide</label>
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Camera & Composition</label>
               <textarea 
-                value={cameraPrompt} 
-                onChange={(e) => setCameraPrompt(e.target.value)} 
+                value={cameraCompositionPrompt} 
+                onChange={(e) => setCameraCompositionPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="Enter camera and composition guide..."
+                placeholder="Enter camera settings and composition..."
                 className={`w-full h-24 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Lighting Guide</label>
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Lighting & Mood</label>
               <textarea 
-                value={lightingPrompt} 
-                onChange={(e) => setLightingPrompt(e.target.value)} 
+                value={lightingMoodPrompt} 
+                onChange={(e) => setLightingMoodPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="Enter lighting guide..."
+                placeholder="Enter lighting and atmosphere guide..."
                 className={`w-full h-24 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Background Guide</label>
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Set & Background</label>
               <textarea 
-                value={backgroundPrompt} 
-                onChange={(e) => setBackgroundPrompt(e.target.value)} 
+                value={setBackgroundPrompt} 
+                onChange={(e) => setSetBackgroundPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="Enter background guide..."
+                placeholder="Enter set design and background details..."
                 className={`w-full h-24 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Mood Guide</label>
+              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Texture & Technical</label>
               <textarea 
-                value={moodPrompt} 
-                onChange={(e) => setMoodPrompt(e.target.value)} 
+                value={textureTechnicalPrompt} 
+                onChange={(e) => setTextureTechnicalPrompt(e.target.value)} 
                 disabled={isAnalyzing}
-                placeholder="Enter mood and atmosphere guide..."
+                placeholder="Enter texture and technical details..."
                 className={`w-full h-24 bg-black/60 border border-white/5 rounded-2xl p-4 text-xs font-mono text-indigo-300 focus:ring-2 ring-indigo-500/20 outline-none transition-all resize-none custom-scrollbar ${isAnalyzing ? 'opacity-50 cursor-wait' : ''}`} 
               />
             </div>
@@ -237,8 +237,31 @@ const BlendTab: React.FC<BlendTabProps> = ({
               </div>
 
               <div className="flex-1">
-                <button disabled={status === AppStatus.GENERATING || isAnalyzing} onClick={processEditing} className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-sm transition-all shadow-2xl ${status === AppStatus.GENERATING || isAnalyzing ? 'bg-slate-900 text-slate-700' : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:scale-[1.01] active:scale-95'}`}>
-                  {status === AppStatus.GENERATING ? '생성 중...' : isAnalyzing ? '분석 중...' : 'GENERATE'}
+                <button 
+                  disabled={status === AppStatus.GENERATING || isAnalyzing} 
+                  onClick={processEditing} 
+                  className={`w-full py-6 rounded-2xl font-black uppercase tracking-[0.4em] text-base transition-all shadow-[0_0_40px_rgba(79,70,229,0.3)] flex items-center justify-center gap-3 group ${
+                    status === AppStatus.GENERATING || isAnalyzing 
+                      ? 'bg-slate-900 text-slate-700 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 text-white hover:scale-[1.02] active:scale-95 hover:shadow-[0_0_60px_rgba(79,70,229,0.5)] border border-white/20'
+                  }`}
+                >
+                  {status === AppStatus.GENERATING ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>생성 중...</span>
+                    </>
+                  ) : isAnalyzing ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" />
+                      <span>분석 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <SparklesIcon className="w-5 h-5 group-hover:animate-pulse" />
+                      <span>GENERATE</span>
+                    </>
+                  )}
                 </button>
               </div>
            </div>
