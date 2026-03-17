@@ -413,16 +413,34 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
             <button 
               disabled={status === AppStatus.GENERATING || !inputImage} 
               onClick={() => processAdjustment(true)} 
-              className={`flex-1 py-5 rounded-3xl font-black text-[12px] uppercase tracking-[0.2em] transition-all border ${status === AppStatus.GENERATING ? 'bg-slate-900 border-white/5 text-slate-700' : 'bg-white/5 border-white/10 text-indigo-400 hover:bg-white/10 hover:border-indigo-500 shadow-lg'}`}
+              className={`flex-1 py-6 rounded-3xl font-black text-[12px] uppercase tracking-[0.2em] transition-all border ${
+                status === AppStatus.GENERATING 
+                  ? 'bg-slate-900 border-white/5 text-slate-700 cursor-not-allowed' 
+                  : 'bg-white/5 border-white/10 text-indigo-400 hover:bg-white/10 hover:border-indigo-500 shadow-lg'
+              }`}
             >
               Apply All Steps (HQ)
             </button>
             <button 
               disabled={status === AppStatus.GENERATING || !inputImage} 
               onClick={() => processAdjustment(false)} 
-              className={`flex-[2] py-5 rounded-3xl font-black text-[14px] uppercase tracking-[0.4em] transition-all shadow-2xl ${status === AppStatus.GENERATING ? 'bg-slate-900 text-slate-700' : 'bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-lg shadow-indigo-500/20 hover:scale-[1.01] active:scale-95'}`}
+              className={`flex-[2] py-6 rounded-3xl font-black text-base uppercase tracking-[0.4em] transition-all shadow-[0_0_40px_rgba(79,70,229,0.3)] flex items-center justify-center gap-3 group ${
+                status === AppStatus.GENERATING 
+                  ? 'bg-slate-900 text-slate-700 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-indigo-500 via-violet-600 to-fuchsia-600 text-white hover:scale-[1.02] active:scale-95 hover:shadow-[0_0_60px_rgba(79,70,229,0.5)] border border-white/20'
+              }`}
             >
-              {status === AppStatus.GENERATING ? '생성 중...' : 'GENERATE MASTERPIECE'}
+              {status === AppStatus.GENERATING ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>생성 중...</span>
+                </>
+              ) : (
+                <>
+                  <SparklesIcon className="w-5 h-5 group-hover:animate-pulse" />
+                  <span>GENERATE MASTERPIECE</span>
+                </>
+              )}
             </button>
           </div>
         </div>
