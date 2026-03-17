@@ -34,7 +34,9 @@ const generateSafeSeed = () => Math.floor(Math.random() * 2147483647);
 
 const getApiKey = () => {
   const customKey = localStorage.getItem('custom_gemini_api_key');
-  return customKey || process.env.API_KEY;
+  if (customKey) return customKey;
+  // Use GEMINI_API_KEY for free tier models, API_KEY for user-selected paid models
+  return process.env.GEMINI_API_KEY || process.env.API_KEY;
 };
 
 export const validateApiKey = async (apiKey: string): Promise<boolean> => {
@@ -74,31 +76,35 @@ export const classifyModelView = async (base64Image: string, mimeType: string = 
   }
 };
 
-export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png'): Promise<{ overall: string; lighting: string; background: string; mood: string; camera: string }> => {
-  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png'): Promise<{ coreProduction: string; cameraComposition: string; setBackground: string; lightingMood: string; textureTechnical: string }> => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("API Key가 설정되지 않았습니다. 상단 'Key' 버튼을 통해 API 키를 먼저 설정해주세요.");
+  }
+  const ai = new GoogleGenAI({ apiKey });
   const prompt = `Analyze this reference image with the eye of a high-end fashion curator and professional commercial photographer. 
   Your goal is to capture the precise aesthetic and technical essence of the image with extreme detail, whether it is a "Vintage Archival" look or a "Cutting-edge Modern" style. Avoid generic or simplistic descriptors.
 
   Provide the analysis in English, following this exact structured format for each field in a JSON response.
 
   JSON Keys and required sub-headers for values:
-  - "overall": (Shot Type, Camera Angle, Positioning, Lens & Focus)
-  - "camera": (Camera Angle, Focal Length, Aperture, Exposure & ISO, Perspective)
-  - "lighting": (Direction, Highlights, Shadows, Mood)
-  - "background": (Subject Base, Compositional Elements, Backdrop)
-  - "mood": (Aesthetic, Texture & Tone, Atmosphere, Color Palette)
+  - "coreProduction": (Theme, Style, Overall Concept, Subject Focus)
+  - "cameraComposition": (Camera Angle, Focal Length, Aperture, Exposure & ISO, Perspective, Framing & Composition)
+  - "setBackground": (Set Design, Floor Materials, Props, Backdrop, Compositional Elements)
+  - "lightingMood": (Lighting Direction, Highlights, Shadows, Mood, Atmosphere, Color Palette)
+  - "textureTechnical": (Material Texture, Surface Details, Fabric/Skin Pores, Film Grain, Chromatic Aberration, Technical Quality)
 
   CRITICAL INSTRUCTIONS:
   - NO HALLUCINATION: If the reference image contains ONLY products and NO people, do NOT imagine or describe any human subjects. Focus strictly on the product's presentation, composition, and technical details. Analyze ONLY what is visible.
-  - Technical Precision: For "camera" and "lighting", use professional photography terminology (e.g., "Rembrandt lighting", "f/1.8 depth of field", "50mm prime compression").
-  - Aesthetic Depth: For "mood", identify the specific era or modern trend. If vintage, describe "film grain" and "analog warmth". If modern, describe "digital crispness", "minimalist precision", or "high-dynamic range".
-  - Color & Texture: Use sophisticated names (e.g., "Deep Forest Green", "Chrome Silver", "Matte Obsidian") and describe the tactile quality (e.g., "Tactile wood grain", "Sleek metallic reflection").
+  - Technical Precision: For "cameraComposition" and "lightingMood", use professional photography terminology (e.g., "Rembrandt lighting", "f/1.8 depth of field", "50mm prime compression").
+  - Aesthetic Depth: For "lightingMood", identify the specific era or modern trend. If vintage, describe "film grain" and "analog warmth". If modern, describe "digital crispness", "minimalist precision", or "high-dynamic range".
+  - Color & Texture: Use sophisticated names (e.g., "Deep Forest Green", "Chrome Silver", "Matte Obsidian") and describe the tactile quality (e.g., "Tactile wood grain", "Sleek metallic reflection") in "textureTechnical".
 
-  Ensure the output is a valid JSON object with keys: "overall", "camera", "lighting", "background", "mood". All values must be in English and highly descriptive.`;
+  Ensure the output is a valid JSON object with keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical". All values must be in English and highly descriptive.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-3-flash-preview',
       config: { responseMimeType: 'application/json' },
       contents: {
         parts: [
@@ -110,21 +116,15 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
     const jsonStr = response.text?.trim() || "{}";
     const result = JSON.parse(jsonStr);
     return {
-      overall: result.overall || "Analysis failed",
-      camera: result.camera || "Analysis failed",
-      lighting: result.lighting || "Analysis failed",
-      background: result.background || "Analysis failed",
-      mood: result.mood || "Analysis failed"
+      coreProduction: result.coreProduction || "Analysis failed",
+      cameraComposition: result.cameraComposition || "Analysis failed",
+      setBackground: result.setBackground || "Analysis failed",
+      lightingMood: result.lightingMood || "Analysis failed",
+      textureTechnical: result.textureTechnical || "Analysis failed"
     };
-  } catch (e) {
+  } catch (e: any) {
     console.error("Analysis Error:", e);
-    return {
-      overall: "Analysis error",
-      camera: "Analysis error",
-      lighting: "Analysis error",
-      background: "Analysis error",
-      mood: "Analysis error"
-    };
+    throw new Error(`이미지 분석 실패: ${e.message || "알 수 없는 오류"}`);
   }
 };
 
