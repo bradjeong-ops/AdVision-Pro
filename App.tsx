@@ -10,9 +10,13 @@ import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
   UserIcon,
-  KeyIcon
+  KeyIcon,
+  ClipboardIcon,
+  HistoryIcon,
+  PhotoIcon,
+  Square2StackIcon
 } from './components/Icons';
-import { AppStatus, GenerationRecord } from './types';
+import { AppStatus, GenerationRecord, ProductionGuide } from './types';
 import { 
   generateProductEdit, 
   adjustAtmosphere, 
@@ -54,10 +58,15 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const [fullscreenData, setFullscreenData] = useState<{
-    images: {url: string, original?: string, initial?: string}[],
+    images: {url: string, original?: string, initial?: string, ratio?: number, productionGuide?: ProductionGuide}[],
     currentIndex: number
   } | null>(null);
+  const [expandedGuideIndices, setExpandedGuideIndices] = useState<number[]>([]);
   
+  useEffect(() => {
+    setExpandedGuideIndices([]);
+  }, [fullscreenData?.currentIndex]);
+
   const [hasApiKey, setHasApiKey] = useState<boolean>(true);
   
   const [blendInputImage, setBlendInputImage] = useState<string | null>(null);
@@ -99,6 +108,12 @@ const App: React.FC = () => {
   const [isFullscreenComparing, setIsFullscreenComparing] = useState(false);
   const [fullscreenCompareMode, setFullscreenCompareMode] = useState<'previous' | 'original' | 'difference'>('previous');
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'info' } | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 2000);
+  }, []);
 
   const [guestPin, setGuestPin] = useState<string | null>(null);
   const [showGuestModal, setShowGuestModal] = useState(false);
@@ -362,7 +377,21 @@ const App: React.FC = () => {
         setBlendOutputImage(results[0]);
         const newRecords: GenerationRecord[] = await Promise.all(results.map(async (url, idx) => {
           const { ratio } = await getImageDimensions(url);
-          return { id: `${Date.now()}-${idx}`, originalImage: blendInputImage || '', generatedImage: url, prompt: `${combinedPrompt}`, timestamp: Date.now(), ratio };
+          return { 
+            id: `${Date.now()}-${idx}`, 
+            originalImage: blendInputImage || '', 
+            generatedImage: url, 
+            prompt: `${combinedPrompt}`, 
+            timestamp: Date.now(), 
+            ratio,
+            productionGuide: {
+              overall: overallPrompt,
+              camera: cameraPrompt,
+              lighting: lightingPrompt,
+              background: backgroundPrompt,
+              mood: moodPrompt
+            }
+          };
         }));
         setSynthesisHistory(prev => [...newRecords, ...prev].slice(0, 100));
         setStatus(AppStatus.IDLE);
@@ -524,30 +553,73 @@ const App: React.FC = () => {
 
       {fullscreenData && (
         <div 
-          className="fixed inset-0 z-[150] bg-black/98 flex items-center justify-center backdrop-blur-3xl overflow-hidden" 
+          className="fixed inset-0 z-[150] bg-black/98 flex backdrop-blur-3xl overflow-hidden" 
           onClick={() => { setFullscreenData(null); setIsFullscreenComparing(false); setZoom(1); setPan({ x: 0, y: 0 }); }}
           onWheel={handleWheel}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
-          <div className="absolute inset-y-0 left-0 w-1/4 z-10 cursor-pointer group flex items-center justify-start pl-8" onClick={(e) => { e.stopPropagation(); navigateImage('prev'); }}>
-             <div className="p-4 rounded-full bg-white/5 opacity-0 group-hover:opacity-100 transition-all border border-white/10 backdrop-blur-md"><ChevronLeftIcon className="w-10 h-10 text-white" /></div>
-          </div>
-          <div className="absolute inset-y-0 right-0 w-1/4 z-10 cursor-pointer group flex items-center justify-end pr-8" onClick={(e) => { e.stopPropagation(); navigateImage('next'); }}>
-             <div className="p-4 rounded-full bg-white/5 opacity-0 group-hover:opacity-100 transition-all border border-white/10 backdrop-blur-md"><ChevronRightIcon className="w-10 h-10 text-white" /></div>
-          </div>
+          {/* Left Side: Image Area */}
           <div 
-            className={`relative w-full h-full flex items-center justify-center p-8 select-none transition-transform duration-200 ${zoom > 1 ? 'cursor-move' : ''}`} 
+            className={`flex-1 relative flex items-center justify-center p-8 select-none transition-transform duration-200 ${zoom > 1 ? 'cursor-move' : ''}`} 
             onClick={(e) => e.stopPropagation()}
             onMouseDown={handleMouseDown}
           >
-            <div className="relative w-full h-full flex items-center justify-center">
+            {/* Navigation Arrows (Relative to Image Area) */}
+            <div className="absolute inset-y-0 left-0 w-24 z-10 cursor-pointer group flex items-center justify-start pl-8" onClick={(e) => { e.stopPropagation(); navigateImage('prev'); }}>
+               <div className="p-4 rounded-full bg-white/5 opacity-0 group-hover:opacity-100 transition-all border border-white/10 backdrop-blur-md"><ChevronLeftIcon className="w-10 h-10 text-white" /></div>
+            </div>
+            <div className="absolute inset-y-0 right-0 w-24 z-10 cursor-pointer group flex items-center justify-end pr-8" onClick={(e) => { e.stopPropagation(); navigateImage('next'); }}>
+               <div className="p-4 rounded-full bg-white/5 opacity-0 group-hover:opacity-100 transition-all border border-white/10 backdrop-blur-md"><ChevronRightIcon className="w-10 h-10 text-white" /></div>
+            </div>
+
+            <div className="relative" style={{ 
+              height: '90vh',
+              aspectRatio: fullscreenData.images[fullscreenData.currentIndex].ratio || 1,
+              maxHeight: '90vh',
+              maxWidth: '100%'
+            }}>
+              {/* Image Comparison Icons (Top Right of Image) */}
+              {fullscreenData.images[fullscreenData.currentIndex].original && (
+                <div className="absolute top-4 right-4 flex flex-col gap-2 z-40" onClick={(e) => e.stopPropagation()}>
+                  {[
+                    { mode: 'previous' as const, icon: HistoryIcon, label: 'Prev' },
+                    { mode: 'original' as const, icon: PhotoIcon, label: 'Orig' },
+                    { mode: 'difference' as const, icon: Square2StackIcon, label: 'Diff' },
+                  ].map((item) => (
+                    <div key={item.mode} className="flex flex-col items-center gap-1 group/btn">
+                      <button
+                        onMouseDown={(e) => { e.stopPropagation(); setFullscreenCompareMode(item.mode); setIsFullscreenComparing(true); }}
+                        onMouseUp={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                        onMouseLeave={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                        onTouchStart={(e) => { e.stopPropagation(); setFullscreenCompareMode(item.mode); setIsFullscreenComparing(true); }}
+                        onTouchEnd={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
+                        className={`p-2.5 rounded-xl backdrop-blur-md border transition-all duration-300 ${
+                          isFullscreenComparing && fullscreenCompareMode === item.mode
+                            ? 'bg-indigo-600 border-indigo-400 text-white scale-110 shadow-lg shadow-indigo-500/40'
+                            : 'bg-black/40 border-white/10 text-white/60 hover:bg-black/60 hover:text-white hover:border-white/20'
+                        }`}
+                      >
+                        <item.icon className="w-4 h-4" />
+                      </button>
+                      <span className="text-[7px] font-black uppercase tracking-tighter text-white/40 group-hover/btn:text-white/80 transition-colors pointer-events-none">
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="mt-2 flex flex-col items-center">
+                    <div className="w-px h-8 bg-gradient-to-b from-white/20 to-transparent" />
+                    <span className="text-[6px] font-black uppercase tracking-[0.2em] text-white/20 [writing-mode:vertical-lr] mt-2">Hold to compare</span>
+                  </div>
+                </div>
+              )}
+
               {fullscreenCompareMode === 'difference' && isFullscreenComparing ? (
                 <div className="relative w-full h-full flex items-center justify-center">
                   <img 
                     src={fullscreenData.images[fullscreenData.currentIndex].initial || fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url} 
-                    className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl" 
+                    className="w-full h-full object-contain rounded-xl shadow-2xl" 
                     style={{ 
                       transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                       pointerEvents: zoom > 1 ? 'none' : 'auto'
@@ -555,7 +627,7 @@ const App: React.FC = () => {
                   />
                   <img 
                     src={fullscreenData.images[fullscreenData.currentIndex].url} 
-                    className="absolute inset-0 m-auto max-w-full max-h-[90vh] object-contain mix-blend-difference" 
+                    className="absolute inset-0 m-auto w-full h-full object-contain mix-blend-difference" 
                     style={{ 
                       transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                       filter: 'invert(1) grayscale(1) contrast(2)',
@@ -570,89 +642,144 @@ const App: React.FC = () => {
                         ? (fullscreenData.images[fullscreenData.currentIndex].initial || fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url)
                         : (fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url))
                     : fullscreenData.images[fullscreenData.currentIndex].url} 
-                  className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl transition-transform duration-200 ease-out" 
+                  className="w-full h-full object-contain rounded-xl shadow-2xl transition-transform duration-200 ease-out" 
                   style={{ 
                     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                     pointerEvents: zoom > 1 ? 'none' : 'auto'
                   }}
                 />
               )}
-            </div>
-
-            {/* Top Right Controls: Close, Download, Set as Base */}
-            <div className="absolute top-8 right-8 flex flex-col items-center gap-4 z-20">
-               <button onClick={() => { setFullscreenData(null); setIsFullscreenComparing(false); setZoom(1); setPan({ x: 0, y: 0 }); }} className="p-3 bg-white/10 rounded-full text-white hover:bg-red-600 transition-all shadow-2xl border border-white/10"><XMarkIcon className="w-6 h-6" /></button>
-               
-               <div className="flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
-                 <button 
-                   onClick={() => downloadImage(fullscreenData.images[fullscreenData.currentIndex].url, 'AdVisionPro_Export.png')}
-                   className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full border border-white/10 transition-all flex items-center justify-center shadow-xl"
-                   title="Download"
-                 >
-                   <ArrowDownTrayIcon className="w-5 h-5" />
-                 </button>
-                 <button 
-                   onClick={() => {
-                     const url = fullscreenData.images[fullscreenData.currentIndex].url;
-                     if (activeTab === 'atmosphere') {
-                       setIntensityInputImage(url);
-                     } else {
-                       setBlendInputImage(url);
-                     }
-                     setFullscreenData(null);
-                   }}
-                   className="p-3 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-400 rounded-full border border-indigo-500/30 transition-all flex items-center justify-center shadow-xl"
-                   title="Set as Base"
-                 >
-                   <ArrowPathIcon className="w-5 h-5" />
-                 </button>
-               </div>
-            </div>
-
-            {/* Bottom Center Comparison Controls */}
-            {fullscreenData.images[fullscreenData.currentIndex].original && (
-              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-20">
-                <div className="flex bg-black/80 p-1 rounded-xl border border-white/10 backdrop-blur-md" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={() => setFullscreenCompareMode('previous')}
-                    className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'previous' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                  >
-                    VS PREVIOUS
-                  </button>
-                  <button 
-                    onClick={() => setFullscreenCompareMode('original')}
-                    className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'original' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                  >
-                    VS ORIGINAL
-                  </button>
-                  <button 
-                    onClick={() => setFullscreenCompareMode('difference')}
-                    className={`px-3 py-1 rounded-lg text-[8px] font-black transition-all ${fullscreenCompareMode === 'difference' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                  >
-                    DIFF MAP
-                  </button>
+              {zoom > 1 && (
+                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white uppercase tracking-widest pointer-events-none z-30 whitespace-nowrap">
+                  Zoom: {Math.round(zoom * 100)}% | Drag to Pan
                 </div>
-                <button 
-                  onMouseDown={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }} 
-                  onMouseUp={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }} 
-                  onMouseLeave={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
-                  onTouchStart={(e) => { e.stopPropagation(); setIsFullscreenComparing(true); }}
-                  onTouchEnd={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
-                  className={`px-8 py-3 rounded-full transition-all shadow-2xl border border-white/10 font-black text-[12px] uppercase tracking-widest ${isFullscreenComparing ? 'bg-white text-black' : 'bg-indigo-600 text-white hover:bg-indigo-500'}`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {fullscreenCompareMode === 'difference' ? 'HOLD TO VIEW DIFF' : 'HOLD TO COMPARE'}
-                </button>
-              </div>
-            )}
-            {zoom > 1 && (
-              <div className="absolute bottom-40 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white uppercase tracking-widest pointer-events-none z-30">
-                Zoom: {Math.round(zoom * 100)}% | Drag to Pan
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+
+          {/* Right Side Panel: Controls & Production Guide */}
+          <div className="relative h-full w-80 bg-black/40 backdrop-blur-md border-l border-white/5 flex flex-col p-8 gap-8 z-20" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Mastering Panel</h3>
+                  <button onClick={() => { setFullscreenData(null); setIsFullscreenComparing(false); setZoom(1); setPan({ x: 0, y: 0 }); setExpandedGuideIndices([]); }} className="p-2 hover:bg-red-600/20 hover:text-red-500 rounded-lg transition-all text-slate-400"><XMarkIcon className="w-5 h-5" /></button>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => downloadImage(fullscreenData.images[fullscreenData.currentIndex].url, 'AdVisionPro_Export.png')}
+                      className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 transition-all flex items-center justify-center gap-2 group shadow-xl"
+                    >
+                      <ArrowDownTrayIcon className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
+                      <span className="text-[9px] font-bold uppercase tracking-widest">Download</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const url = fullscreenData.images[fullscreenData.currentIndex].url;
+                        if (activeTab === 'atmosphere') {
+                          setIntensityInputImage(url);
+                        } else {
+                          setBlendInputImage(url);
+                        }
+                        setFullscreenData(null);
+                        showToast('Image set as base');
+                      }}
+                      className="flex-1 py-3 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-xl border border-indigo-500/30 transition-all flex items-center justify-center gap-2 group shadow-xl"
+                    >
+                      <ArrowPathIcon className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-widest">Set Base</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Production Guide Display */}
+                {fullscreenData.images[fullscreenData.currentIndex].productionGuide && (
+                  <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+                    <div className="flex items-center justify-between pb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-indigo-500/20 rounded-lg">
+                          <SparklesIcon className="w-3.5 h-3.5 text-indigo-400" />
+                        </div>
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Production Guide</span>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const guide = fullscreenData.images[fullscreenData.currentIndex].productionGuide;
+                          if (guide) {
+                            if (guide.overall) setOverallPrompt(guide.overall);
+                            if (guide.camera) setCameraPrompt(guide.camera);
+                            if (guide.lighting) setLightingPrompt(guide.lighting);
+                            if (guide.background) setBackgroundPrompt(guide.background);
+                            if (guide.mood) setMoodPrompt(guide.mood);
+                            const text = `Overall: ${guide.overall || ''}\nCamera: ${guide.camera || ''}\nLighting: ${guide.lighting || ''}\nBackground: ${guide.background || ''}\nMood: ${guide.mood || ''}`;
+                            navigator.clipboard.writeText(text);
+                            showToast('All guides applied and copied');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                      >
+                        <ArrowPathIcon className="w-3 h-3" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter">Apply All</span>
+                      </button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-6 scrollbar-hide">
+                      {[
+                        { label: 'Overall', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.overall, setter: setOverallPrompt },
+                        { label: 'Camera', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.camera, setter: setCameraPrompt },
+                        { label: 'Lighting', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.lighting, setter: setLightingPrompt },
+                        { label: 'Background', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.background, setter: setBackgroundPrompt },
+                        { label: 'Mood', text: fullscreenData.images[fullscreenData.currentIndex].productionGuide?.mood, setter: setMoodPrompt },
+                      ].map((guide, i) => guide.text && (
+                        <div key={i} className="flex flex-col gap-2 group/item">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-1 h-3 bg-indigo-500/50 rounded-full" />
+                              <span className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">{guide.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => {
+                                  if (guide.text) {
+                                    navigator.clipboard.writeText(guide.text);
+                                    showToast(`${guide.label} copied`);
+                                  }
+                                }}
+                                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
+                              >
+                                <ClipboardIcon className="w-3 h-3" />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (guide.text) {
+                                    guide.setter(guide.text);
+                                    showToast(`${guide.label} applied`);
+                                  }
+                                }}
+                                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-indigo-400 transition-colors"
+                              >
+                                <ArrowPathIcon className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                          <p 
+                            onClick={() => {
+                              setExpandedGuideIndices(prev => 
+                                prev.includes(i) ? prev.filter(idx => idx !== i) : [...prev, i]
+                              );
+                            }}
+                            className={`text-[10px] text-slate-300 leading-relaxed transition-all cursor-pointer hover:text-white bg-white/5 p-3 rounded-xl border border-white/5 ${expandedGuideIndices.includes(i) ? '' : 'line-clamp-3'}`}
+                          >
+                            {guide.text}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+            </div>
+          </div>
+        )}
 
       <nav className="z-50 glass-card border-b border-white/5 px-6 py-2.5 flex items-center shrink-0">
         <div className="flex-1 flex items-center gap-3">
@@ -698,7 +825,7 @@ const App: React.FC = () => {
             lightingPrompt={lightingPrompt} setLightingPrompt={setLightingPrompt}
             backgroundPrompt={backgroundPrompt} setBackgroundPrompt={setBackgroundPrompt}
             moodPrompt={moodPrompt} setMoodPrompt={setMoodPrompt}
-            selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} processEditing={processEditing} downloadImage={downloadImage} onSelectHistory={(idx) => setFullscreenData({ images: synthesisHistory.map(h => ({ url: h.generatedImage, original: h.originalImage })), currentIndex: idx })} onTransferToIntensity={useAsIntensityRef} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClearCategory={handleClearCategory} onOpenFullscreen={(url, original, initial) => setFullscreenData({ images: [{ url, original, initial }], currentIndex: 0 })}
+            selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} processEditing={processEditing} downloadImage={downloadImage} onSelectHistory={(idx) => setFullscreenData({ images: synthesisHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, ratio: h.ratio, productionGuide: h.productionGuide })), currentIndex: idx })} onTransferToIntensity={useAsIntensityRef} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClearCategory={handleClearCategory} onOpenFullscreen={async (url, original, initial, productionGuide) => { const {ratio} = await getImageDimensions(url); setFullscreenData({ images: [{ url, original, initial, ratio, productionGuide }], currentIndex: 0 }); }}
           />
         ) : (
           <IntensityTab
@@ -706,11 +833,24 @@ const App: React.FC = () => {
             initialImage={intensityInitialImage} setInitialImage={setIntensityInitialImage}
             outputImage={intensityOutputImage} status={status} history={atmosphereHistory} setHistory={setAtmosphereHistory} selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} 
             params={intensityParams} setParams={setIntensityParams}
-            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} resetIntensityParams={resetIntensityParams} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, initial: intensityInitialImage || undefined })), currentIndex: idx })} onOpenFullscreen={(url, original, initial) => setFullscreenData({ images: [{ url, original, initial }], currentIndex: 0 })} onTransferToInput={(url) => { setIntensityInputImage(url); if (!intensityInitialImage) setIntensityInitialImage(url); }}
+            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} resetIntensityParams={resetIntensityParams} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, ratio: h.ratio, initial: intensityInitialImage || undefined })), currentIndex: idx })} onOpenFullscreen={async (url, original, initial) => { const {ratio} = await getImageDimensions(url); setFullscreenData({ images: [{ url, original, initial, ratio }], currentIndex: 0 }); }} onTransferToInput={(url) => { setIntensityInputImage(url); if (!intensityInitialImage) setIntensityInitialImage(url); }}
           />
         )}
       </main>
       <footer className="py-2 border-t border-white/5 text-center opacity-10 shrink-0"><p className="text-[8px] font-black uppercase tracking-[1em]">SYSTEM STABLE</p></footer>
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className={`px-6 py-3 rounded-2xl backdrop-blur-xl border shadow-2xl flex items-center gap-3 ${
+            toast.type === 'success' 
+              ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' 
+              : 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
+          }`}>
+            <CheckBadgeIcon className="w-5 h-5" />
+            <span className="text-sm font-bold tracking-tight">{toast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
