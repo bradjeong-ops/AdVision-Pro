@@ -1,4 +1,11 @@
 
+export interface AtmosphereParams {
+  color: { selections: string[]; weight: number };
+  lighting: { selections: string[]; weight: number };
+  texture: { selections: string[]; weight: number };
+  grading: { selections: string[]; weight: number };
+}
+
 export interface GenerationRecord {
   id: string;
   originalImage: string;
@@ -6,6 +13,8 @@ export interface GenerationRecord {
   prompt: string;
   timestamp: number;
   ratio?: number;
+  productionGuide?: ProductionGuide;
+  atmosphereParams?: AtmosphereParams;
 }
 
 export enum AppStatus {
@@ -27,8 +36,9 @@ export interface CategoryData {
 }
 
 export interface ProductionGuide {
-  overall: string;
-  lighting: string;
-  background: string;
-  mood: string;
+  coreProduction: string;
+  cameraComposition: string;
+  setBackground: string;
+  lightingMood: string;
+  textureTechnical: string;
 }
