@@ -17,7 +17,7 @@ import {
   Square2StackIcon,
   XCircleIcon
 } from './components/Icons';
-import { AppStatus, GenerationRecord, ProductionGuide } from './types';
+import { AppStatus, GenerationRecord, ProductionGuide, AtmosphereParams } from './types';
 import { 
   generateProductEdit, 
   adjustAtmosphere, 
@@ -59,7 +59,7 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const [fullscreenData, setFullscreenData] = useState<{
-    images: {url: string, original?: string, initial?: string, ratio?: number, productionGuide?: ProductionGuide}[],
+    images: {url: string, original?: string, initial?: string, ratio?: number, productionGuide?: ProductionGuide, atmosphereParams?: AtmosphereParams}[],
     currentIndex: number
   } | null>(null);
   const [expandedGuideIndices, setExpandedGuideIndices] = useState<number[]>([]);
@@ -430,7 +430,7 @@ const App: React.FC = () => {
         const newRecords: GenerationRecord[] = await Promise.all(results.map(async (url, idx) => {
           const { ratio } = await getImageDimensions(url);
           const prompt = `Mastering: [Color:${intensityParams.color.selections.join(', ') || 'None'}(${intensityParams.color.weight}%)] [Light:${intensityParams.lighting.selections.join(', ') || 'None'}(${intensityParams.lighting.weight}%)] [Text:${intensityParams.texture.selections.join(', ') || 'None'}(${intensityParams.texture.weight}%)] [Grading:${intensityParams.grading.selections.join(', ') || 'None'}(${intensityParams.grading.weight}%)]`;
-          return { id: `${Date.now()}-${idx}`, originalImage: targetImage, generatedImage: url, prompt, timestamp: Date.now(), ratio };
+          return { id: `${Date.now()}-${idx}`, originalImage: targetImage, generatedImage: url, prompt, timestamp: Date.now(), ratio, atmosphereParams: JSON.parse(JSON.stringify(intensityParams)) };
         }));
         setAtmosphereHistory(prev => [...newRecords, ...prev].slice(0, 100));
         setStatus(AppStatus.IDLE);
@@ -579,10 +579,10 @@ const App: React.FC = () => {
             </div>
 
             <div className="relative" style={{ 
-              height: '90vh',
+              height: (fullscreenData.images[fullscreenData.currentIndex].ratio || 1) > 1.2 ? '60vh' : '90vh',
               aspectRatio: fullscreenData.images[fullscreenData.currentIndex].ratio || 1,
               maxHeight: '90vh',
-              maxWidth: '100%'
+              maxWidth: '90%'
             }}>
               {/* Image Comparison Icons (Top Right of Image) */}
               {fullscreenData.images[fullscreenData.currentIndex].original && (
@@ -696,36 +696,53 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Comparison Controls */}
-                {fullscreenData.images[fullscreenData.currentIndex].original && (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1 h-3 bg-indigo-500/50 rounded-full" />
-                      <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-500">Comparison Controls</h4>
+                {/* Atmosphere Guide Display */}
+                {fullscreenData.images[fullscreenData.currentIndex].atmosphereParams && (
+                  <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+                    <div className="flex items-center justify-between pb-4 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-indigo-500/20 rounded-lg">
+                          <SparklesIcon className="w-3.5 h-3.5 text-indigo-400" />
+                        </div>
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Atmosphere Guide</span>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const params = fullscreenData.images[fullscreenData.currentIndex].atmosphereParams;
+                          if (params) {
+                            setIntensityParams(JSON.parse(JSON.stringify(params)));
+                            showToast('Atmosphere settings applied');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                      >
+                        <ArrowPathIcon className="w-3 h-3" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter">Apply All</span>
+                      </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { mode: 'previous' as const, icon: HistoryIcon, label: 'Prev' },
-                        { mode: 'original' as const, icon: PhotoIcon, label: 'Orig' },
-                        { mode: 'difference' as const, icon: Square2StackIcon, label: 'Diff' },
-                      ].map((item) => (
-                        <button
-                          key={item.mode}
-                          onMouseDown={(e) => { e.stopPropagation(); setFullscreenCompareMode(item.mode); setIsFullscreenComparing(true); }}
-                          onMouseUp={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
-                          onMouseLeave={(e) => { e.stopPropagation(); setIsFullscreenComparing(false); }}
-                          className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
-                            isFullscreenComparing && fullscreenCompareMode === item.mode
-                              ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/20'
-                              : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          <item.icon className="w-4 h-4" />
-                          <span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
-                        </button>
+                    
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-6 scrollbar-hide">
+                      {Object.entries(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!).map(([key, value]) => (
+                        <div key={key} className="flex flex-col gap-2 group/item">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-1 h-3 bg-indigo-500/50 rounded-full" />
+                              <span className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">{key}</span>
+                            </div>
+                            <span className="text-[9px] font-black text-indigo-400">{value.weight}%</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {value.selections.length > 0 ? value.selections.map((s, i) => (
+                              <span key={i} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold text-slate-300">
+                                {s}
+                              </span>
+                            )) : (
+                              <span className="text-[9px] text-slate-600 italic">No selections</span>
+                            )}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                    <p className="text-[8px] text-slate-600 italic text-center">Hold button to compare with result</p>
                   </div>
                 )}
 
@@ -870,7 +887,7 @@ const App: React.FC = () => {
             initialImage={intensityInitialImage} setInitialImage={setIntensityInitialImage}
             outputImage={intensityOutputImage} status={status} history={atmosphereHistory} setHistory={setAtmosphereHistory} selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} 
             params={intensityParams} setParams={setIntensityParams}
-            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} resetIntensityParams={resetIntensityParams} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, ratio: h.ratio, initial: intensityInitialImage || undefined })), currentIndex: idx })} onOpenFullscreen={async (url, original, initial) => { const {ratio} = await getImageDimensions(url); setFullscreenData({ images: [{ url, original, initial, ratio }], currentIndex: 0 }); }} onTransferToInput={(url) => { setIntensityInputImage(url); if (!intensityInitialImage) setIntensityInitialImage(url); }}
+            processAdjustment={processAdjustment} processWhiteBalance={processWhiteBalance} resetIntensityParams={resetIntensityParams} downloadImage={downloadImage} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onSelectHistory={(idx) => setFullscreenData({ images: atmosphereHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, ratio: h.ratio, initial: intensityInitialImage || undefined, atmosphereParams: h.atmosphereParams })), currentIndex: idx })} onOpenFullscreen={async (url, original, initial) => { const {ratio} = await getImageDimensions(url); const record = atmosphereHistory.find(h => h.generatedImage === url); setFullscreenData({ images: [{ url, original, initial, ratio, atmosphereParams: record?.atmosphereParams }], currentIndex: 0 }); }} onTransferToInput={(url) => { setIntensityInputImage(url); if (!intensityInitialImage) setIntensityInitialImage(url); }}
           />
         )}
       </main>
