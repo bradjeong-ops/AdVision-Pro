@@ -103,7 +103,7 @@ const App: React.FC = () => {
     other: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false }
   });
 
-  const [coreProductionPrompt, setCoreProductionPrompt] = useState(BASE_SYNTHESIS_PROMPT);
+  const [coreProductionPrompt, setCoreProductionPrompt] = useState("");
   const [cameraCompositionPrompt, setCameraCompositionPrompt] = useState('');
   const [setBackgroundPrompt, setSetBackgroundPrompt] = useState('');
   const [lightingMoodPrompt, setLightingMoodPrompt] = useState('');
@@ -123,14 +123,14 @@ const App: React.FC = () => {
       setIsAnalyzing(true);
       try {
         const currentGuide = {
-          coreProduction: coreProductionPrompt.replace(`${BASE_SYNTHESIS_PROMPT}\n\n[CORE PRODUCTION]\n`, ''),
+          coreProduction: coreProductionPrompt,
           cameraComposition: cameraCompositionPrompt,
           setBackground: setBackgroundPrompt,
           lightingMood: lightingMoodPrompt,
           textureTechnical: textureTechnicalPrompt
         };
         const translated = await translateProductionGuide(currentGuide, newLang);
-        setCoreProductionPrompt(`${BASE_SYNTHESIS_PROMPT}\n\n[CORE PRODUCTION]\n${translated.coreProduction}`);
+        setCoreProductionPrompt(translated.coreProduction);
         setCameraCompositionPrompt(translated.cameraComposition);
         setSetBackgroundPrompt(translated.setBackground);
         setLightingMoodPrompt(translated.lightingMood);
@@ -304,7 +304,7 @@ const App: React.FC = () => {
             setBlendInputImage(result); setBlendOutputImage(null); setIsAnalyzing(true);
             try {
               const analysis = await analyzeReferenceImage(result, 'image/png', language);
-              setCoreProductionPrompt(`${BASE_SYNTHESIS_PROMPT}\n\n[CORE PRODUCTION]\n${analysis.coreProduction}`);
+              setCoreProductionPrompt(analysis.coreProduction);
               setCameraCompositionPrompt(analysis.cameraComposition);
               setSetBackgroundPrompt(analysis.setBackground);
               setLightingMoodPrompt(analysis.lightingMood);
@@ -395,6 +395,8 @@ const App: React.FC = () => {
 
   const processEditing = async () => {
     const combinedPrompt = `
+      ${BASE_SYNTHESIS_PROMPT}
+
       [CORE_PRODUCTION]: ${coreProductionPrompt}
       [CAMERA_COMPOSITION]: ${cameraCompositionPrompt}
       [SET_BACKGROUND]: ${setBackgroundPrompt}
