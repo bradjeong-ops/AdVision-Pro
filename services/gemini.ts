@@ -18,14 +18,13 @@ export type ImageQuality = "1K" | "2K" | "4K";
 export type ModelViewType = 'front' | 'side' | 'back' | 'item';
 
 const V30_MASTER_PROTOCOL = `
-[CRITICAL INSTRUCTIONS FOR POSE AND IDENTITY]
-1. VISUAL PRIORITY (ABSOLUTE): The visual details (identity, clothing, props) provided in the [Subject Reference], [Face Detail Reference], and [Garment Detail Reference] images MUST take absolute precedence over any text instructions. Do not let the text prompt override the physical characteristics, colors, or textures shown in these reference images.
-2. FRAMING & CROPPING (ABSOLUTE PRIORITY): The camera framing (e.g., close-up, knee shot, half body, full body) MUST exactly match the [Base Image]. If the [Base Image] is a knee shot, the output MUST be a knee shot, even if the [Subject Reference] is a full body shot.
-3. POSE & ACTION (ABSOLUTE PRIORITY): The generated image MUST perfectly replicate the exact physical pose, skeleton, action, and body angle of the person in the [Base Image]. Do not alter the posture, limb positions, or the way they are interacting with the environment.
-4. IDENTITY REPLACEMENT: Replace the person in the [Base Image] with the exact person from the [Subject Reference] and [Face Detail Reference] images.
-5. GARMENT REPLACEMENT: Dress the person in the exact clothing shown in the [Garment Detail Reference] images.
-6. BACKGROUND PRESERVATION: Keep the background and lighting exactly as they appear in the [Base Image].
-7. PHOTOREALISM: Render with ultra-high photorealistic quality, matching professional studio photography.
+[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT]
+1. VISUAL PRIORITY (ABSOLUTE): The visual details (identity, clothing, product details, props) provided in the reference images MUST take absolute precedence over any text instructions. Do not let the text prompt override the physical characteristics, colors, or textures shown in these reference images.
+2. FRAMING & CROPPING (ABSOLUTE PRIORITY): The camera framing and scale MUST exactly match the [Base Image].
+3. POSE & PLACEMENT (ABSOLUTE PRIORITY): The generated image MUST perfectly replicate the exact physical placement, angle, and interaction with the environment shown in the [Base Image]. If the subject is a person, preserve their exact pose and skeleton. If the subject is a product, preserve its exact placement and scale.
+4. SUBJECT REPLACEMENT: Replace the main subject (person or product) in the [Base Image] with the exact subject from the reference images.
+5. BACKGROUND PRESERVATION: Keep the background and lighting exactly as they appear in the [Base Image].
+6. PHOTOREALISM: Render with ultra-high photorealistic quality, matching professional studio photography.
 `;
 
 const getBase64Data = (url: string) => url.split(',')[1];
@@ -95,6 +94,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   - "textureTechnical": (Material Texture, Surface Details, Fabric/Skin Pores, Film Grain, Chromatic Aberration, Technical Quality)
 
   CRITICAL INSTRUCTIONS:
+  - PRODUCT ABSTRACTION: If the image features a product (e.g., shoes, bags, cosmetics) rather than a person, DO NOT describe the specific product's design, color, branding, or shape. Instead, refer to it generically as "the main product" or "the subject". Your analysis MUST focus entirely on the surrounding environment, lighting, camera angle, and props. This ensures the prompt can be used as a template for a completely different product.
   - NO HALLUCINATION: If the reference image contains ONLY products and NO people, do NOT imagine or describe any human subjects. Focus strictly on the product's presentation, composition, and technical details. Analyze ONLY what is visible.
   - Technical Precision: For "cameraComposition" and "lightingMood", use professional photography terminology (e.g., "Rembrandt lighting", "f/1.8 depth of field", "50mm prime compression").
   - Aesthetic Depth: For "lightingMood", identify the specific era or modern trend. If vintage, describe "film grain" and "analog warmth". If modern, describe "digital crispness", "minimalist precision", or "high-dynamic range".
@@ -143,11 +143,11 @@ export const generateProductEdit = async (
     const parts: any[] = [];
     
     if (base64Original) {
-      parts.push({ text: "[Base Image]: This is the foundational image. You MUST preserve the EXACT pose, action, skeleton, and background of the person in this image." });
+      parts.push({ text: "[Base Image]: This is the foundational image. You MUST preserve the EXACT layout, composition, background, and overall structure of this image. If there is a person, preserve their pose and skeleton. If there is a main product, preserve its placement and scale." });
       parts.push({ inlineData: { data: getBase64Data(base64Original), mimeType } });
-      parts.push({ text: "Now, using the [Base Image] as your strict template for pose and background, replace the person's identity and clothing using the following references:" });
+      parts.push({ text: "Now, using the [Base Image] as your strict template, replace the main subject (person or product) using the following references:" });
     } else {
-      parts.push({ text: "Generate a photorealistic image of the EXACT person shown in the [Subject Reference] images, wearing the EXACT clothing shown in the [Subject Reference] images." });
+      parts.push({ text: "Generate a photorealistic image of the EXACT subject (person or product) shown in the [Subject Reference] images." });
     }
 
     categories.forEach((cat) => {
