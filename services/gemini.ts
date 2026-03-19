@@ -32,6 +32,32 @@ const getBase64Data = (url: string) => url.split(',')[1];
 
 const generateSafeSeed = () => Math.floor(Math.random() * 2147483647);
 
+const withRetry = async <T>(fn: () => Promise<T>, maxRetries = 3, initialDelay = 1000): Promise<T> => {
+  let lastError: any;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      lastError = e;
+      const errorMessage = e.message || String(e);
+      const isRetryable = 
+        errorMessage.includes('503') || 
+        errorMessage.includes('UNAVAILABLE') || 
+        errorMessage.includes('429') || 
+        errorMessage.includes('Deadline') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('expired');
+      
+      if (!isRetryable) throw e;
+      
+      const delay = initialDelay * Math.pow(2, i);
+      console.warn(`Gemini API call failed (attempt ${i + 1}/${maxRetries}). Retrying in ${delay}ms...`, errorMessage);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+};
+
 const getApiKey = () => {
   const customKey = localStorage.getItem('custom_gemini_api_key');
   if (customKey) return customKey;
@@ -43,10 +69,10 @@ export const validateApiKey = async (apiKey: string): Promise<boolean> => {
   const ai = new GoogleGenAI({ apiKey });
   try {
     // Try a very simple content generation to verify the key
-    await ai.models.generateContent({
+    await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ parts: [{ text: 'ok' }] }],
-    });
+    }));
     return true;
   } catch (e) {
     console.error("API Key Validation Error:", e);
@@ -59,7 +85,7 @@ export const classifyModelView = async (base64Image: string, mimeType: string = 
   const prompt = `Classify this fashion image: front, side, back, or item. Output only one word.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3.1-pro-preview',
       contents: {
         parts: [
@@ -67,7 +93,7 @@ export const classifyModelView = async (base64Image: string, mimeType: string = 
           { text: prompt }
         ]
       }
-    });
+    }));
     const result = response.text?.trim().toLowerCase();
     if (['front', 'side', 'back', 'item'].includes(result || '')) return result as ModelViewType;
     return null;
@@ -109,7 +135,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   Ensure the output is a valid JSON object with keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical". All values must be highly descriptive.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
@@ -117,7 +143,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
           { text: prompt }
         ]
       }
-    });
+    }));
     let jsonStr = response.text?.trim() || "{}";
     const match = jsonStr.match(/\{[\s\S]*\}/);
     if (match) {
@@ -156,10 +182,10 @@ export const translateProductionGuide = async (guide: ProductionGuide, targetLan
   Ensure the output is a valid JSON object with the exact same keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical".`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: [{ parts: [{ text: prompt }] }]
-    });
+    }));
     let jsonStr = response.text?.trim() || "{}";
     const match = jsonStr.match(/\{[\s\S]*\}/);
     if (match) {
@@ -240,7 +266,7 @@ export const generateProductEdit = async (
       ${V30_MASTER_PROTOCOL}`
     });
 
-    const response = await ai.models.generateContent({
+    const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: { parts },
       config: {
@@ -250,7 +276,7 @@ export const generateProductEdit = async (
         },
         seed: generateSafeSeed()
       }
-    });
+    }));
 
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
@@ -322,14 +348,14 @@ export const adjustAtmosphere = async (
         ${ATMOSPHERE_MASTER_PROTOCOL}` 
       }
     ];
-    const response = await ai.models.generateContent({
+    const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: { parts },
       config: { 
         imageConfig: { aspectRatio: aspectRatio, imageSize: quality as any }, 
         seed: generateSafeSeed()
       }
-    });
+    }));
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
@@ -364,14 +390,14 @@ export const correctWhiteBalance = async (
   ];
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: { parts },
       config: { 
         imageConfig: { aspectRatio: aspectRatio, imageSize: quality as any }, 
         seed: generateSafeSeed()
       }
-    });
+    }));
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
