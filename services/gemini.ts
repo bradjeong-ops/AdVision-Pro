@@ -1,5 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
+import { Language, ProductionGuide } from '../types';
 
 export interface CategorizedProduct {
   category: string;
@@ -75,16 +76,21 @@ export const classifyModelView = async (base64Image: string, mimeType: string = 
   }
 };
 
-export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png'): Promise<{ coreProduction: string; cameraComposition: string; setBackground: string; lightingMood: string; textureTechnical: string }> => {
+export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png', lang: Language = 'en'): Promise<{ coreProduction: string; cameraComposition: string; setBackground: string; lightingMood: string; textureTechnical: string }> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("API Key가 설정되지 않았습니다. 상단 'Key' 버튼을 통해 API 키를 먼저 설정해주세요.");
   }
   const ai = new GoogleGenAI({ apiKey });
+  
+  const languageInstruction = lang === 'ko' 
+    ? "모든 분석 결과는 한국어로 작성하세요. 전문적인 사진 용어는 유지하되 설명은 친절하게 한국어로 제공하십시오." 
+    : "Provide the analysis in English.";
+
   const prompt = `Analyze this reference image with the eye of a high-end fashion curator and professional commercial photographer. 
   Your goal is to capture the precise aesthetic and technical essence of the image with extreme detail, whether it is a "Vintage Archival" look or a "Cutting-edge Modern" style. Avoid generic or simplistic descriptors.
 
-  Provide the analysis in English, following this exact structured format for each field in a JSON response.
+  ${languageInstruction} Follow this exact structured format for each field in a JSON response.
 
   JSON Keys and required sub-headers for values:
   - "coreProduction": (Theme, Style, Overall Concept, Subject Focus)
@@ -100,7 +106,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   - Aesthetic Depth: For "lightingMood", identify the specific era or modern trend. If vintage, describe "film grain" and "analog warmth". If modern, describe "digital crispness", "minimalist precision", or "high-dynamic range".
   - Color & Texture: Use sophisticated names (e.g., "Deep Forest Green", "Chrome Silver", "Matte Obsidian") and describe the tactile quality (e.g., "Tactile wood grain", "Sleek metallic reflection") in "textureTechnical".
 
-  Ensure the output is a valid JSON object with keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical". All values must be in English and highly descriptive.`;
+  Ensure the output is a valid JSON object with keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical". All values must be highly descriptive.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -125,6 +131,45 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   } catch (e: any) {
     console.error("Analysis Error:", e);
     throw new Error(`이미지 분석 실패: ${e.message || "알 수 없는 오류"}`);
+  }
+};
+
+export const translateProductionGuide = async (guide: ProductionGuide, targetLang: Language): Promise<ProductionGuide> => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("API Key가 설정되지 않았습니다.");
+  }
+  const ai = new GoogleGenAI({ apiKey });
+  
+  const instruction = targetLang === 'ko'
+    ? "Translate the following JSON values to Korean. Keep professional photography terms intact but provide friendly Korean explanations."
+    : "Translate the following JSON values to English. Ensure highly descriptive, professional photography terminology.";
+
+  const prompt = `${instruction}
+  
+  JSON to translate:
+  ${JSON.stringify(guide, null, 2)}
+  
+  Ensure the output is a valid JSON object with the exact same keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical".`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      config: { responseMimeType: 'application/json' },
+      contents: [{ parts: [{ text: prompt }] }]
+    });
+    const jsonStr = response.text?.trim() || "{}";
+    const result = JSON.parse(jsonStr);
+    return {
+      coreProduction: result.coreProduction || guide.coreProduction,
+      cameraComposition: result.cameraComposition || guide.cameraComposition,
+      setBackground: result.setBackground || guide.setBackground,
+      lightingMood: result.lightingMood || guide.lightingMood,
+      textureTechnical: result.textureTechnical || guide.textureTechnical
+    };
+  } catch (e: any) {
+    console.error("Translation Error:", e);
+    return guide; // Fallback to original if translation fails
   }
 };
 
