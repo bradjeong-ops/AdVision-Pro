@@ -1,4 +1,6 @@
 
+export type Language = 'en' | 'ko';
+
 export interface AtmosphereParams {
   color: { selections: string[]; weight: number };
   lighting: { selections: string[]; weight: number };
