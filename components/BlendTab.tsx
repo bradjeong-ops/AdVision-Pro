@@ -17,6 +17,8 @@ import { AppStatus, GenerationRecord } from '../types';
 import { AllowedAspectRatio, ImageQuality } from '../services/gemini';
 
 interface BlendTabProps {
+  language: 'en' | 'ko';
+  onLanguageToggle: (lang: 'en' | 'ko') => void;
   inputImage: string | null;
   setInputImage: (img: string | null) => void;
   outputImage: string | null;
@@ -53,6 +55,7 @@ interface BlendTabProps {
 }
 
 const BlendTab: React.FC<BlendTabProps> = ({
+  language, onLanguageToggle,
   inputImage, setInputImage, outputImage, status, isAnalyzing, history, setHistory,
   categorizedProducts, setCategorizedProducts, 
   coreProductionPrompt, setCoreProductionPrompt,
@@ -156,6 +159,10 @@ const BlendTab: React.FC<BlendTabProps> = ({
                 )}
               </div>
               <div className="flex gap-2">
+                <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 mr-2">
+                  <button onClick={() => onLanguageToggle('en')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${language === 'en' ? "bg-indigo-600 text-white shadow-xl" : "text-slate-600 hover:text-slate-400"}`}>EN</button>
+                  <button onClick={() => onLanguageToggle('ko')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all ${language === 'ko' ? "bg-indigo-600 text-white shadow-xl" : "text-slate-600 hover:text-slate-400"}`}>KO</button>
+                </div>
                 <div className="flex bg-black/40 p-1 rounded-xl border border-white/10">
                   {["9:16", "3:4", "16:9"].map(r => (
                     <button key={r} onClick={() => setSelectedRatio(r as AllowedAspectRatio)} className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${selectedRatio === r ? "bg-indigo-600 text-white shadow-xl" : "text-slate-600 hover:text-slate-400"}`}>{r}</button>
