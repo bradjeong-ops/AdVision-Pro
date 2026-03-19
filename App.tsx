@@ -17,12 +17,13 @@ import {
   Square2StackIcon,
   XCircleIcon
 } from './components/Icons';
-import { AppStatus, GenerationRecord, ProductionGuide, AtmosphereParams } from './types';
+import { AppStatus, GenerationRecord, ProductionGuide, AtmosphereParams, Language } from './types';
 import { 
   generateProductEdit, 
   adjustAtmosphere, 
   correctWhiteBalance,
   analyzeReferenceImage,
+  translateProductionGuide,
   classifyModelView,
   CategorizedProduct, 
   AllowedAspectRatio, 
@@ -64,6 +65,8 @@ const App: React.FC = () => {
   } | null>(null);
   const [expandedGuideIndices, setExpandedGuideIndices] = useState<number[]>([]);
   
+  const [language, setLanguage] = useState<Language>('en');
+
   useEffect(() => {
     setExpandedGuideIndices([]);
   }, [fullscreenData?.currentIndex]);
@@ -110,6 +113,37 @@ const App: React.FC = () => {
   const [fullscreenCompareMode, setFullscreenCompareMode] = useState<'previous' | 'original' | 'difference'>('previous');
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'info' | 'error' } | null>(null);
+
+  const handleLanguageToggle = async (newLang: Language) => {
+    if (language === newLang) return;
+    setLanguage(newLang);
+    
+    // If there's an existing analysis, translate it
+    if (cameraCompositionPrompt || setBackgroundPrompt || lightingMoodPrompt || textureTechnicalPrompt) {
+      setIsAnalyzing(true);
+      try {
+        const currentGuide = {
+          coreProduction: coreProductionPrompt.replace(`${BASE_SYNTHESIS_PROMPT}\n\n[CORE PRODUCTION]\n`, ''),
+          cameraComposition: cameraCompositionPrompt,
+          setBackground: setBackgroundPrompt,
+          lightingMood: lightingMoodPrompt,
+          textureTechnical: textureTechnicalPrompt
+        };
+        const translated = await translateProductionGuide(currentGuide, newLang);
+        setCoreProductionPrompt(`${BASE_SYNTHESIS_PROMPT}\n\n[CORE PRODUCTION]\n${translated.coreProduction}`);
+        setCameraCompositionPrompt(translated.cameraComposition);
+        setSetBackgroundPrompt(translated.setBackground);
+        setLightingMoodPrompt(translated.lightingMood);
+        setTextureTechnicalPrompt(translated.textureTechnical);
+        showToast(newLang === 'ko' ? '한국어로 번역되었습니다.' : 'Translated to English.');
+      } catch (err: any) {
+        console.error(err);
+        showToast('번역 중 오류가 발생했습니다.', 'error');
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }
+  };
 
   const showToast = useCallback((message: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToast({ message, type });
@@ -269,7 +303,7 @@ const App: React.FC = () => {
           if (activeTab === 'synthesis') {
             setBlendInputImage(result); setBlendOutputImage(null); setIsAnalyzing(true);
             try {
-              const analysis = await analyzeReferenceImage(result);
+              const analysis = await analyzeReferenceImage(result, 'image/png', language);
               setCoreProductionPrompt(`${BASE_SYNTHESIS_PROMPT}\n\n[CORE PRODUCTION]\n${analysis.coreProduction}`);
               setCameraCompositionPrompt(analysis.cameraComposition);
               setSetBackgroundPrompt(analysis.setBackground);
@@ -337,7 +371,7 @@ const App: React.FC = () => {
       processFiles(Array.from(e.target.files), options);
     }
     e.target.value = '';
-  }, [activeTab, categorizedProducts]);
+  }, [activeTab, categorizedProducts, language]);
 
   const handleDropUpload = useCallback((e: React.DragEvent<HTMLDivElement>, options?: any) => {
     e.preventDefault();
@@ -345,7 +379,7 @@ const App: React.FC = () => {
     if (e.dataTransfer.files) {
       processFiles(Array.from(e.dataTransfer.files), options);
     }
-  }, [activeTab, categorizedProducts]);
+  }, [activeTab, categorizedProducts, language]);
 
   const downloadImage = useCallback((dataUrl: string, filename: string) => {
     const link = document.createElement('a');
@@ -722,17 +756,19 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto pr-2 space-y-6 scrollbar-hide">
-                      {Object.entries(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!).map(([key, value]) => (
+                      {Object.entries(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!).map(([key, value]) => {
+                        const typedValue = value as { weight: number, selections: string[] };
+                        return (
                         <div key={key} className="flex flex-col gap-2 group/item">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <div className="w-1 h-3 bg-indigo-500/50 rounded-full" />
                               <span className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">{key}</span>
                             </div>
-                            <span className="text-[9px] font-black text-indigo-400">{value.weight}%</span>
+                            <span className="text-[9px] font-black text-indigo-400">{typedValue.weight}%</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
-                            {value.selections.length > 0 ? value.selections.map((s, i) => (
+                            {typedValue.selections.length > 0 ? typedValue.selections.map((s, i) => (
                               <span key={i} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold text-slate-300">
                                 {s}
                               </span>
@@ -741,7 +777,7 @@ const App: React.FC = () => {
                             )}
                           </div>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   </div>
                 )}
@@ -873,6 +909,7 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
         {activeTab === 'synthesis' ? (
           <BlendTab
+            language={language} onLanguageToggle={handleLanguageToggle}
             inputImage={blendInputImage} setInputImage={setBlendInputImage} outputImage={blendOutputImage} status={status} isAnalyzing={isAnalyzing} history={synthesisHistory} setHistory={setSynthesisHistory} categorizedProducts={categorizedProducts} setCategorizedProducts={setCategorizedProducts} 
             coreProductionPrompt={coreProductionPrompt} setCoreProductionPrompt={setCoreProductionPrompt}
             cameraCompositionPrompt={cameraCompositionPrompt} setCameraCompositionPrompt={setCameraCompositionPrompt}
