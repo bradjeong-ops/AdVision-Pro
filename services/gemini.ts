@@ -111,7 +111,6 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      config: { responseMimeType: 'application/json' },
       contents: {
         parts: [
           { inlineData: { data: getBase64Data(base64Image), mimeType } },
@@ -119,7 +118,11 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
         ]
       }
     });
-    const jsonStr = response.text?.trim() || "{}";
+    let jsonStr = response.text?.trim() || "{}";
+    const match = jsonStr.match(/\{[\s\S]*\}/);
+    if (match) {
+      jsonStr = match[0];
+    }
     const result = JSON.parse(jsonStr);
     return {
       coreProduction: result.coreProduction || "Analysis failed",
@@ -155,10 +158,13 @@ export const translateProductionGuide = async (guide: ProductionGuide, targetLan
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      config: { responseMimeType: 'application/json' },
       contents: [{ parts: [{ text: prompt }] }]
     });
-    const jsonStr = response.text?.trim() || "{}";
+    let jsonStr = response.text?.trim() || "{}";
+    const match = jsonStr.match(/\{[\s\S]*\}/);
+    if (match) {
+      jsonStr = match[0];
+    }
     const result = JSON.parse(jsonStr);
     return {
       coreProduction: result.coreProduction || guide.coreProduction,
