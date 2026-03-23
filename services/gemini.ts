@@ -58,6 +58,28 @@ const withRetry = async <T>(fn: () => Promise<T>, maxRetries = 3, initialDelay =
   throw lastError;
 };
 
+const parseJSON = (str: string) => {
+  let cleaned = str.trim();
+  // Extract the first { and last }
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (match) {
+    cleaned = match[0];
+  }
+  
+  // Remove common JSON errors
+  // 1. Remove comments
+  cleaned = cleaned.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  // 2. Remove trailing commas
+  cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
+  
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("JSON Parse Error on string:", cleaned);
+    throw e;
+  }
+};
+
 const getApiKey = () => {
   const customKey = localStorage.getItem('custom_gemini_api_key');
   if (customKey) return customKey;
@@ -137,6 +159,9 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   try {
     const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
+      config: {
+        responseMimeType: 'application/json'
+      },
       contents: {
         parts: [
           { inlineData: { data: getBase64Data(base64Image), mimeType } },
@@ -144,12 +169,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
         ]
       }
     }));
-    let jsonStr = response.text?.trim() || "{}";
-    const match = jsonStr.match(/\{[\s\S]*\}/);
-    if (match) {
-      jsonStr = match[0];
-    }
-    const result = JSON.parse(jsonStr);
+    const result = parseJSON(response.text || "{}");
     return {
       coreProduction: result.coreProduction || "Analysis failed",
       cameraComposition: result.cameraComposition || "Analysis failed",
@@ -184,14 +204,12 @@ export const translateProductionGuide = async (guide: ProductionGuide, targetLan
   try {
     const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
+      config: {
+        responseMimeType: 'application/json'
+      },
       contents: [{ parts: [{ text: prompt }] }]
     }));
-    let jsonStr = response.text?.trim() || "{}";
-    const match = jsonStr.match(/\{[\s\S]*\}/);
-    if (match) {
-      jsonStr = match[0];
-    }
-    const result = JSON.parse(jsonStr);
+    const result = parseJSON(response.text || "{}");
     return {
       coreProduction: result.coreProduction || guide.coreProduction,
       cameraComposition: result.cameraComposition || guide.cameraComposition,
