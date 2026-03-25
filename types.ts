@@ -2,10 +2,12 @@
 export type Language = 'en' | 'ko';
 
 export interface AtmosphereParams {
-  color: { selections: string[]; weight: number };
-  lighting: { selections: string[]; weight: number };
-  texture: { selections: string[]; weight: number };
-  grading: { selections: string[]; weight: number };
+  color: { selections: string[]; weight: number; referenceImage?: string | null };
+  lighting: { selections: string[]; weight: number; referenceImage?: string | null };
+  texture: { selections: string[]; weight: number; referenceImage?: string | null };
+  grading: { selections: string[]; weight: number; referenceImage?: string | null };
+  globalReferenceImage?: string | null;
+  globalIntensity?: number;
 }
 
 export interface GenerationRecord {
