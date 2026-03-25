@@ -8,9 +8,11 @@ import {
   ArrowPathIcon,
   ArrowsPointingOutIcon,
   HistoryIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  PhotoIcon,
+  XCircleIcon
 } from './Icons';
-import { AppStatus, GenerationRecord } from '../types';
+import { AppStatus, GenerationRecord, AtmosphereParams } from '../types';
 import { AllowedAspectRatio, ImageQuality } from '../services/gemini';
 import HistoryPanel from './HistoryPanel';
 
@@ -140,13 +142,8 @@ interface IntensityTabProps {
   setSelectedQuality: (q: ImageQuality) => void;
   selectedCount: number;
   setSelectedCount: (c: number) => void;
-  params: {
-    color: { selections: string[]; weight: number };
-    lighting: { selections: string[]; weight: number };
-    texture: { selections: string[]; weight: number };
-    grading: { selections: string[]; weight: number };
-  };
-  setParams: React.Dispatch<React.SetStateAction<any>>;
+  params: AtmosphereParams;
+  setParams: React.Dispatch<React.SetStateAction<AtmosphereParams>>;
   processAdjustment: (useInitial?: boolean) => void;
   processWhiteBalance: () => void;
   resetIntensityParams: () => void;
@@ -170,6 +167,7 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
   const [activeStep, setActiveStep] = useState<keyof typeof INTENSITY_OPTIONS>('color');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [isComparing, setIsComparing] = useState(false);
+  const [isGlobalRefExpanded, setIsGlobalRefExpanded] = useState(false);
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups(prev => ({
@@ -178,7 +176,11 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
     }));
   };
 
-  const updateParam = (key: keyof typeof params, value: any) => {
+  const updateParam = (key: keyof AtmosphereParams, value: any) => {
+    if (key === 'globalReferenceImage') {
+      setParams(prev => ({ ...prev, globalReferenceImage: value }));
+      return;
+    }
     setParams((prev: any) => {
       const current = prev[key];
       if (value.name) {
@@ -193,6 +195,26 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
       }
       return { ...prev, [key]: { ...current, ...value } };
     });
+  };
+
+  const handleStepImageUpload = (e: React.ChangeEvent<HTMLInputElement>, step: keyof AtmosphereParams) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      updateParam(step, { referenceImage: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGlobalImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      updateParam('globalReferenceImage', reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -273,47 +295,149 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
       {/* Bottom Section: Controls & History */}
       <div className="flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar bg-slate-900/20 rounded-t-[40px] p-6 border-t border-white/5">
         
-        {/* Workflow Guide */}
-        <div className="flex items-center justify-between mb-4 bg-black/40 p-4 rounded-2xl border border-white/5">
-          {WORKFLOW_STEPS.map((step, idx) => (
-            <React.Fragment key={step.id}>
+        {/* Global Reference Image */}
+        <div className="flex flex-col gap-3 bg-indigo-500/5 border border-indigo-500/10 p-5 rounded-3xl mb-2 transition-all">
+          <div 
+            onClick={() => setIsGlobalRefExpanded(!isGlobalRefExpanded)}
+            className="flex items-center justify-between w-full group cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <PhotoIcon className={`w-4 h-4 transition-colors ${params.globalReferenceImage ? 'text-indigo-400' : 'text-slate-500 group-hover:text-indigo-400'}`} />
+              <h3 className={`text-[11px] font-black uppercase tracking-[0.15em] transition-colors ${params.globalReferenceImage ? 'text-indigo-300' : 'text-slate-500 group-hover:text-indigo-300'}`}>
+                Global Reference (All Steps)
+              </h3>
+              {params.globalReferenceImage && (
+                <div className="px-2 py-0.5 bg-indigo-500/20 rounded-full border border-indigo-500/30">
+                  <span className="text-[7px] font-black text-indigo-400 uppercase tracking-widest">Active</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {params.globalReferenceImage && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); updateParam('globalReferenceImage', null); }}
+                  className="text-[9px] font-bold text-red-400/60 hover:text-red-400 uppercase tracking-widest flex items-center gap-1"
+                >
+                  <TrashIcon className="w-3 h-3" /> Clear
+                </button>
+              )}
+              <ChevronRightIcon className={`w-4 h-4 text-slate-600 transition-transform duration-300 ${isGlobalRefExpanded ? 'rotate-90 text-indigo-400' : ''}`} />
+            </div>
+          </div>
+
+          {isGlobalRefExpanded && (
+            <div className="flex gap-4 items-center mt-2 animate-in slide-in-from-top-2 duration-300">
               <div 
-                onClick={() => setActiveStep(step.id as any)}
-                className={`flex flex-col items-center gap-2 cursor-pointer transition-all ${activeStep === step.id ? 'scale-110' : 'opacity-40 hover:opacity-70'}`}
+                className={`relative w-24 h-24 rounded-2xl border-2 border-dashed overflow-hidden flex items-center justify-center transition-all cursor-pointer ${params.globalReferenceImage ? 'border-indigo-500/50 bg-black/40' : 'border-white/5 bg-black/20 hover:border-indigo-500/30'}`}
+                onClick={() => document.getElementById('global-ref-input')?.click()}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border ${activeStep === step.id ? 'bg-indigo-600 border-indigo-400 shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10'}`}>
-                  {step.icon}
-                </div>
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className={`text-[9px] font-black uppercase tracking-widest ${activeStep === step.id ? 'text-white' : 'text-slate-500'}`}>{step.name}</span>
-                  <span className={`text-[7px] font-bold uppercase tracking-tighter truncate max-w-[60px] ${params[step.id as keyof typeof params].selections.length > 0 ? 'text-indigo-400' : 'text-slate-700'}`}>
-                    {params[step.id as keyof typeof params].selections.length > 0 
-                      ? (params[step.id as keyof typeof params].selections.length > 1 
-                          ? `${params[step.id as keyof typeof params].selections[0]} +${params[step.id as keyof typeof params].selections.length - 1}`
-                          : params[step.id as keyof typeof params].selections[0])
-                      : 'None'}
-                  </span>
-                </div>
+                {params.globalReferenceImage ? (
+                  <img src={params.globalReferenceImage} className="w-full h-full object-cover" />
+                ) : (
+                  <CloudArrowUpIcon className="w-6 h-6 text-white/10" />
+                )}
+                <input 
+                  id="global-ref-input" 
+                  type="file" 
+                  className="hidden" 
+                  onChange={handleGlobalImageUpload} 
+                  accept="image/*"
+                />
               </div>
-              {idx < WORKFLOW_STEPS.length - 1 && <div className="flex-1 h-px bg-white/5 mx-4" />}
-            </React.Fragment>
-          ))}
+              <div className="flex-1">
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  {params.globalReferenceImage 
+                    ? "Global reference active. Manual adjustments for all steps are locked in favor of this image's aesthetic."
+                    : "Upload an image to automatically match its color, lighting, and texture across all steps. This will lock manual controls."}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Workflow Guide */}
+        <div className="relative mb-4">
+          {params.globalReferenceImage && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-indigo-600/10 backdrop-blur-[2px] rounded-2xl border border-indigo-500/20 animate-in fade-in duration-500">
+              <div className="flex items-center gap-3 px-6 py-2.5 bg-indigo-600 rounded-full shadow-2xl shadow-indigo-500/40 border border-indigo-400/30">
+                <SparklesIcon className="w-4 h-4 text-white animate-pulse" />
+                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white">Global Reference Mode</span>
+              </div>
+            </div>
+          )}
+          <div className={`flex items-center justify-between bg-black/40 p-4 rounded-2xl border border-white/5 transition-all duration-500 ${params.globalReferenceImage ? 'opacity-40 grayscale blur-[1px] pointer-events-none' : ''}`}>
+            {WORKFLOW_STEPS.map((step, idx) => (
+              <React.Fragment key={step.id}>
+                <div 
+                  onClick={() => setActiveStep(step.id as any)}
+                  className={`flex flex-col items-center gap-2 cursor-pointer transition-all ${activeStep === step.id ? 'scale-110' : 'opacity-40 hover:opacity-70'}`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border transition-all ${
+                    activeStep === step.id 
+                      ? (params.globalReferenceImage || params[step.id as keyof typeof params]?.referenceImage 
+                          ? 'bg-red-600 border-red-400 shadow-lg shadow-red-500/20' 
+                          : 'bg-indigo-600 border-indigo-400 shadow-lg shadow-indigo-500/20') 
+                      : 'bg-white/5 border-white/10'
+                  }`}>
+                    {step.icon}
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${activeStep === step.id ? 'text-white' : 'text-slate-500'}`}>{step.name}</span>
+                    <span className={`text-[7px] font-bold uppercase tracking-tighter truncate max-w-[60px] ${
+                      params[step.id as keyof typeof params]?.referenceImage || params.globalReferenceImage
+                        ? 'text-red-400' 
+                        : (params[step.id as keyof typeof params]?.selections?.length ?? 0) > 0 
+                          ? 'text-indigo-400' 
+                          : 'text-slate-700'
+                    }`}>
+                      {params[step.id as keyof typeof params]?.referenceImage 
+                        ? 'Ref Applied'
+                        : (params[step.id as keyof typeof params]?.selections?.length ?? 0) > 0 
+                          ? ((params[step.id as keyof typeof params]?.selections?.length ?? 0) > 1 
+                              ? `${params[step.id as keyof typeof params]?.selections?.[0]} +${(params[step.id as keyof typeof params]?.selections?.length ?? 0) - 1}`
+                              : params[step.id as keyof typeof params]?.selections?.[0])
+                          : 'None'}
+                    </span>
+                  </div>
+                  {params[step.id as keyof typeof params].referenceImage && !params.globalReferenceImage && (
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 shadow-lg" />
+                  )}
+                </div>
+                {idx < WORKFLOW_STEPS.length - 1 && <div className="flex-1 h-px bg-white/5 mx-4" />}
+              </React.Fragment>
+            ))}
+          </div>
         </div>
 
         {/* Step Header */}
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center gap-3">
-            <SparklesIcon className="w-4 h-4 text-indigo-400" />
+            <SparklesIcon className={`w-4 h-4 ${params.globalReferenceImage || params[activeStep]?.referenceImage ? 'text-red-400' : 'text-indigo-400'}`} />
             <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-400">
-              {WORKFLOW_STEPS.find(s => s.id === activeStep)?.label}
+              {params.globalReferenceImage ? 'Global Reference Mode' : WORKFLOW_STEPS.find(s => s.id === activeStep)?.label}
             </h2>
           </div>
           <div className="flex gap-2">
             <button 
-              onClick={resetIntensityParams}
-              className="px-4 py-1.5 rounded-lg text-[10px] font-black transition-all border bg-white/5 border-white/10 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-500 shadow-lg"
+              onClick={() => {
+                if (params.globalReferenceImage) {
+                  resetIntensityParams();
+                  return;
+                }
+                const newParams = { ...params };
+                if (activeStep === 'color') newParams.color = { selections: [], weight: 50, referenceImage: null };
+                if (activeStep === 'lighting') newParams.lighting = { selections: [], weight: 50, referenceImage: null };
+                if (activeStep === 'texture') newParams.texture = { selections: [], weight: 50, referenceImage: null };
+                if (activeStep === 'grading') newParams.grading = { selections: [], weight: 50, referenceImage: null };
+                setParams(newParams);
+              }}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all border bg-white/5 border-white/10 shadow-lg ${
+                params.globalReferenceImage || params[activeStep]?.referenceImage 
+                  ? 'text-red-400 hover:bg-red-600 hover:text-white hover:border-red-500' 
+                  : 'text-indigo-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-500'
+              }`}
             >
-              RESET ALL
+              RESET
             </button>
             {activeStep === 'color' && (
               <button 
@@ -332,71 +456,139 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
           </div>
         </div>
 
-        {/* Options Grid */}
-        <div className="flex flex-col gap-8 shrink-0">
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-4">
-              {INTENSITY_OPTIONS[activeStep].map((group) => {
-                const isExpanded = expandedGroups[group.group] || false;
-                return (
-                  <div key={group.group} className="flex flex-col bg-black/20 rounded-2xl border border-white/5 overflow-hidden transition-all">
-                    <button 
-                      onClick={() => toggleGroup(group.group)}
-                      className="flex items-center justify-between px-5 py-4 hover:bg-white/5 transition-colors group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-1 h-3 rounded-full transition-all ${isExpanded ? 'bg-indigo-500 h-4' : 'bg-slate-700'}`} />
-                        <h3 className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isExpanded ? 'text-white' : 'text-slate-500 group-hover:text-slate-400'}`}>
-                          {group.group}
-                        </h3>
+        {/* Options Grid - Hidden when reference image is active */}
+        {!(params.globalReferenceImage || params[activeStep]?.referenceImage) && (
+          <div className="flex flex-col gap-8 shrink-0 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
+                {INTENSITY_OPTIONS[activeStep].map((group) => {
+                  const isExpanded = expandedGroups[group.group] || false;
+                  return (
+                    <div key={group.group} className="flex flex-col bg-black/20 rounded-2xl border border-white/5 overflow-hidden transition-all">
+                      <div 
+                        onClick={() => toggleGroup(group.group)}
+                        className="flex items-center justify-between px-5 py-4 hover:bg-white/5 transition-colors group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-1 h-3 rounded-full transition-all ${isExpanded ? (params.globalReferenceImage || params[activeStep]?.referenceImage ? 'bg-red-500' : 'bg-indigo-500') + ' h-4' : 'bg-slate-700'}`} />
+                          <h3 className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isExpanded ? 'text-white' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                            {group.group}
+                          </h3>
+                        </div>
+                        <ChevronRightIcon className={`w-4 h-4 text-slate-600 transition-transform duration-300 ${isExpanded ? 'rotate-90 ' + (params.globalReferenceImage || params[activeStep]?.referenceImage ? 'text-red-400' : 'text-indigo-400') : ''}`} />
                       </div>
-                      <ChevronRightIcon className={`w-4 h-4 text-slate-600 transition-transform duration-300 ${isExpanded ? 'rotate-90 text-indigo-400' : ''}`} />
-                    </button>
-                    
-                    {isExpanded && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 p-4 pt-0 animate-in slide-in-from-top-2 duration-300">
-                        {group.items.map((opt: any) => (
-                          <button 
-                            key={opt.id} 
-                            onClick={() => updateParam(activeStep, { name: opt.id })} 
-                            className={`flex flex-col items-start p-4 rounded-xl border transition-all text-left group ${params[activeStep].selections.includes(opt.id) || (opt.id === 'None' && params[activeStep].selections.length === 0) ? 'bg-indigo-600 border-indigo-500 text-white shadow-xl' : 'bg-black/40 border-white/5 text-slate-400 hover:border-white/10'}`}
-                          >
-                            <span className="text-[10px] font-black uppercase tracking-widest mb-1">{opt.name}</span>
-                            <span className={`text-[8px] font-medium leading-tight ${params[activeStep].selections.includes(opt.id) || (opt.id === 'None' && params[activeStep].selections.length === 0) ? 'text-indigo-100' : 'text-slate-600 group-hover:text-slate-500'}`}>{opt.description}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                      
+                      {isExpanded && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 p-4 pt-0 animate-in slide-in-from-top-2 duration-300">
+                          {group.items.map((opt: any) => {
+                            const isSelected = params[activeStep]?.selections?.includes(opt.id) || (opt.id === 'None' && (params[activeStep]?.selections?.length ?? 0) === 0);
+                            const isRefActive = params.globalReferenceImage || params[activeStep]?.referenceImage;
+                            return (
+                              <button 
+                                key={opt.id} 
+                                onClick={() => updateParam(activeStep, { name: opt.id })} 
+                                className={`flex flex-col items-start p-4 rounded-xl border transition-all text-left group ${isSelected ? (isRefActive ? 'bg-red-600 border-red-500' : 'bg-indigo-600 border-indigo-500') + ' text-white shadow-xl' : 'bg-black/40 border-white/5 text-slate-400 hover:border-white/10'}`}
+                              >
+                                <span className="text-[10px] font-black uppercase tracking-widest mb-1">{opt.name}</span>
+                                <span className={`text-[8px] font-medium leading-tight ${isSelected ? (isRefActive ? 'text-red-100' : 'text-indigo-100') : 'text-slate-600 group-hover:text-slate-500'}`}>{opt.description}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Intensity & Summary */}
-          <div className="flex flex-col md:flex-row gap-6 bg-black/40 p-6 rounded-3xl border border-white/5">
-            <div className="flex-1 flex flex-col gap-2">
+        {/* Intensity & Summary - Highlighted when reference is active */}
+        <div className={`flex flex-col md:flex-row gap-6 p-6 rounded-3xl border transition-all duration-500 ${
+          params.globalReferenceImage || params[activeStep]?.referenceImage 
+            ? 'bg-red-600/10 border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.1)]' 
+            : 'bg-indigo-600/10 border-indigo-500/30 shadow-[0_0_30px_rgba(79,70,229,0.1)]'
+        }`}>
+          <div className="flex-1 flex flex-col gap-4">
+            {!params.globalReferenceImage && (
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-end">
+                  <label className={`text-[10px] font-black uppercase tracking-widest ${params[activeStep]?.referenceImage ? 'text-red-400' : 'text-indigo-400'}`}>Step Reference Image</label>
+                  {params[activeStep as keyof typeof params]?.referenceImage && (
+                    <button 
+                      onClick={() => updateParam(activeStep as any, { referenceImage: null })}
+                      className="text-[9px] font-bold text-red-400/60 hover:text-red-400 uppercase tracking-widest flex items-center gap-1"
+                    >
+                      <TrashIcon className="w-3 h-3" /> Remove
+                    </button>
+                  )}
+                </div>
+                <div 
+                  className={`relative h-20 rounded-xl border-2 border-dashed flex items-center justify-center transition-all cursor-pointer overflow-hidden ${params[activeStep as keyof typeof params]?.referenceImage ? 'border-red-500/50 bg-black/40' : 'border-white/5 bg-black/20 hover:border-indigo-500/30'}`}
+                  onClick={() => document.getElementById(`step-ref-input-${activeStep}`)?.click()}
+                >
+                  {params[activeStep as keyof typeof params]?.referenceImage ? (
+                    <div className="flex items-center gap-3 px-4 w-full">
+                      <img src={params[activeStep as keyof typeof params]?.referenceImage!} className="w-12 h-12 rounded-lg object-cover border border-white/10" referrerPolicy="no-referrer" />
+                      <span className="text-[10px] font-bold text-red-300 uppercase tracking-widest">Reference Active</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 opacity-40">
+                      <CloudArrowUpIcon className="w-4 h-4" />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Upload {activeStep} Reference</span>
+                    </div>
+                  )}
+                  <input 
+                    id={`step-ref-input-${activeStep}`} 
+                    type="file" 
+                    className="hidden" 
+                    onChange={(e) => handleStepImageUpload(e, activeStep as any)} 
+                    accept="image/*"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
               <div className="flex justify-between items-end">
-                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Effect Intensity</label>
-                <span className="text-[12px] font-black text-white">{params[activeStep].weight}%</span>
+                <label className={`text-[10px] font-black uppercase tracking-widest ${params.globalReferenceImage || params[activeStep]?.referenceImage ? 'text-red-400' : 'text-indigo-400'}`}>
+                  {params.globalReferenceImage ? 'Global Intensity' : 'Effect Intensity'}
+                </label>
+                <span className="text-[12px] font-black text-white">
+                  {params.globalReferenceImage ? (params.globalIntensity ?? 50) : (params[activeStep]?.weight ?? 50)}%
+                </span>
               </div>
               <input 
                 type="range" min="0" max="100" 
-                value={params[activeStep].weight}
-                onChange={(e) => updateParam(activeStep, { weight: parseInt(e.target.value) })}
-                className="w-full h-1.5 bg-white/5 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                value={params.globalReferenceImage ? (params.globalIntensity ?? 50) : (params[activeStep]?.weight ?? 50)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (params.globalReferenceImage) {
+                    setParams(prev => ({ ...prev, globalIntensity: val }));
+                  } else {
+                    updateParam(activeStep, { weight: val });
+                  }
+                }}
+                className={`w-full h-1.5 bg-white/5 rounded-lg appearance-none cursor-pointer ${params.globalReferenceImage || params[activeStep]?.referenceImage ? 'accent-red-500' : 'accent-indigo-500'}`}
               />
               <div className="flex justify-between text-[8px] font-black text-slate-600 uppercase tracking-tighter">
                 <span>Subtle</span><span>Balanced</span><span>Dramatic</span>
               </div>
             </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Step Summary</label>
-              <div className="p-3 bg-white/5 rounded-xl border border-white/5 h-full flex items-center">
-                <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                  {params[activeStep].selections.length === 0 ? "옵션을 선택하여 보정을 시작하세요." : `${params[activeStep].selections.join(', ')} 효과를 ${params[activeStep].weight}% 강도로 적용합니다.`}
-                </p>
-              </div>
+          </div>
+          <div className="flex-1 flex flex-col gap-2">
+            <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Step Summary</label>
+            <div className="p-3 bg-white/5 rounded-xl border border-white/5 h-full flex items-center">
+              <p className="text-[10px] text-slate-400 leading-relaxed italic">
+                {params.globalReferenceImage 
+                  ? "Global reference image is active. This step will follow the global aesthetic. Manual options are locked."
+                  : params[activeStep]?.referenceImage 
+                    ? `이 단계는 첨부된 레퍼런스 이미지를 참고하여 ${activeStep} 효과를 적용합니다. 매뉴얼 옵션은 잠금 상태입니다.`
+                    : (params[activeStep]?.selections?.length ?? 0) === 0 
+                      ? "옵션을 선택하거나 레퍼런스 이미지를 업로드하여 보정을 시작하세요." 
+                      : `${params[activeStep]?.selections?.join(', ')} 효과를 ${params[activeStep]?.weight ?? 50}% 강도로 적용합니다.`}
+              </p>
             </div>
           </div>
         </div>
