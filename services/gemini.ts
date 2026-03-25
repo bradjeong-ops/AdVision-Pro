@@ -19,13 +19,22 @@ export type ImageQuality = "1K" | "2K" | "4K";
 export type ModelViewType = 'front' | 'side' | 'back' | 'item';
 
 const V30_MASTER_PROTOCOL = `
-[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT]
-1. VISUAL PRIORITY (ABSOLUTE): The visual details (identity, clothing, product details, props) provided in the reference images MUST take absolute precedence over any text instructions. Do not let the text prompt override the physical characteristics, colors, or textures shown in these reference images.
-2. FRAMING & CROPPING (ABSOLUTE PRIORITY): The camera framing and scale MUST exactly match the [Base Image].
-3. POSE & PLACEMENT (ABSOLUTE PRIORITY): The generated image MUST perfectly replicate the exact physical placement, angle, and interaction with the environment shown in the [Base Image]. If the subject is a person, preserve their exact pose and skeleton. If the subject is a product, preserve its exact placement and scale.
-4. SUBJECT REPLACEMENT: Replace the main subject (person or product) in the [Base Image] with the exact subject from the reference images.
-5. BACKGROUND PRESERVATION: Keep the background and lighting exactly as they appear in the [Base Image].
-6. PHOTOREALISM: Render with ultra-high photorealistic quality, matching professional studio photography.
+[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V3.4]
+1. STRUCTURAL TEMPLATE FIDELITY (NON-NEGOTIABLE): 
+   - The [Base Image] is a STRICT SKELETON. You MUST preserve the EXACT pose, limb positions, hand/foot placement, body silhouette, and overall perspective. 
+   - DO NOT alter the subject's physical orientation or the interaction points (e.g., high-fives, holding objects). The subject in the [Base Image] is a "pose dummy".
+2. ABSOLUTE SUBJECT REPLACEMENT: 
+   - The subject's face, hair, and CLOTHING must be derived 100% from the [Subject Reference] and [Garment Detail Reference].
+   - NO INHERITANCE: Absolutely zero clothing items, colors, patterns, or facial features should be carried over from the [Base Image]. 
+3. INTERACTION & CONTACT REALISM:
+   - SEAMLESS CONTACT: Ensure realistic pressure and shadows at contact points (e.g., hands touching). Use "Ambient Occlusion" to ground the subjects in the scene.
+4. PELVIC DYNAMICS & VITALITY:
+   - Capture natural weight shifts (Contrapposto). The hips and shoulders should tilt realistically to reflect the pose's dynamism, avoiding a "stiff" or "cardboard" look.
+5. CANDID EMOTION & EXPRESSION:
+   - Maintain the facial expression (emotion, mouth shape, eye squint) from the [Base Image], but render it using the facial features and identity from the [Subject Reference].
+6. LIGHTING & INTEGRATION:
+   - The new subject MUST be perfectly integrated into the [Base Image]'s lighting environment (directional light, shadows, rim lighting).
+7. PHOTOREALISM: Render with ultra-high photorealistic quality, matching professional high-end advertising photography.
 `;
 
 const getBase64Data = (url: string) => url.split(',')[1];
@@ -124,7 +133,13 @@ export const classifyModelView = async (base64Image: string, mimeType: string = 
   }
 };
 
-export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png', lang: Language = 'en'): Promise<{ coreProduction: string; cameraComposition: string; setBackground: string; lightingMood: string; textureTechnical: string }> => {
+export interface SubjectMap {
+  id: string;
+  description: string;
+  assignedModelId: string | null; // 'id1', 'id2', 'id3', 'id4'
+}
+
+export const analyzeReferenceImage = async (base64Image: string, mimeType: string = 'image/png', lang: Language = 'en'): Promise<ProductionGuide> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("API Key가 설정되지 않았습니다. 상단 'Key' 버튼을 통해 API 키를 먼저 설정해주세요.");
@@ -136,7 +151,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
     : "Provide the analysis in English.";
 
   const prompt = `Analyze this reference image with the eye of a high-end fashion curator and professional commercial photographer. 
-  Your goal is to capture the precise aesthetic and technical essence of the image with extreme detail, whether it is a "Vintage Archival" look or a "Cutting-edge Modern" style. Avoid generic or simplistic descriptors.
+  Your goal is to capture the precise aesthetic and technical essence of the image with extreme detail.
 
   ${languageInstruction} Follow this exact structured format for each field in a JSON response.
 
@@ -146,15 +161,14 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   - "setBackground": (Set Design, Floor Materials, Props, Backdrop, Compositional Elements)
   - "lightingMood": (Lighting Direction, Highlights, Shadows, Mood, Atmosphere, Color Palette)
   - "textureTechnical": (Material Texture, Surface Details, Fabric/Skin Pores, Film Grain, Chromatic Aberration, Technical Quality)
+  - "subjects": (An array of objects representing the people/subjects in the image. Each object should have "id" (e.g., "subject_1") and "description" (e.g., "왼쪽의 빨간 자켓을 입은 사람")).
 
   CRITICAL INSTRUCTIONS:
-  - PRODUCT ABSTRACTION: If the image features a product (e.g., shoes, bags, cosmetics) rather than a person, DO NOT describe the specific product's design, color, branding, or shape. Instead, refer to it generically as "the main product" or "the subject". Your analysis MUST focus entirely on the surrounding environment, lighting, camera angle, and props. This ensures the prompt can be used as a template for a completely different product.
-  - NO HALLUCINATION: If the reference image contains ONLY products and NO people, do NOT imagine or describe any human subjects. Focus strictly on the product's presentation, composition, and technical details. Analyze ONLY what is visible.
-  - Technical Precision: For "cameraComposition" and "lightingMood", use professional photography terminology (e.g., "Rembrandt lighting", "f/1.8 depth of field", "50mm prime compression").
-  - Aesthetic Depth: For "lightingMood", identify the specific era or modern trend. If vintage, describe "film grain" and "analog warmth". If modern, describe "digital crispness", "minimalist precision", or "high-dynamic range".
-  - Color & Texture: Use sophisticated names (e.g., "Deep Forest Green", "Chrome Silver", "Matte Obsidian") and describe the tactile quality (e.g., "Tactile wood grain", "Sleek metallic reflection") in "textureTechnical".
+  - SUBJECT DETECTION: Identify all distinct people in the image. For each person, provide a clear, concise description of their position and key identifying feature. IMPORTANT: The "description" for subjects MUST ALWAYS be in Korean, even if other fields are in English.
+  - PRODUCT ABSTRACTION: If the image features a product rather than a person, refer to it generically as ${lang === 'ko' ? '"메인 제품"' : '"the main product"'}.
+  - NO HALLUCINATION: Analyze ONLY what is visible.
 
-  Ensure the output is a valid JSON object with keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical". All values must be highly descriptive.`;
+  Ensure the output is a valid JSON object with keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical", "subjects".`;
 
   try {
     const response = await withRetry(() => ai.models.generateContent({
@@ -175,7 +189,8 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
       cameraComposition: result.cameraComposition || "Analysis failed",
       setBackground: result.setBackground || "Analysis failed",
       lightingMood: result.lightingMood || "Analysis failed",
-      textureTechnical: result.textureTechnical || "Analysis failed"
+      textureTechnical: result.textureTechnical || "Analysis failed",
+      subjects: (result.subjects || []).map((s: any) => ({ ...s, assignedModelId: null }))
     };
   } catch (e: any) {
     console.error("Analysis Error:", e);
@@ -191,15 +206,15 @@ export const translateProductionGuide = async (guide: ProductionGuide, targetLan
   const ai = new GoogleGenAI({ apiKey });
   
   const instruction = targetLang === 'ko'
-    ? "Translate the following JSON values to Korean. Keep professional photography terms intact but provide friendly Korean explanations."
-    : "Translate the following JSON values to English. Ensure highly descriptive, professional photography terminology.";
+    ? "Translate the following JSON values to Korean. Keep professional photography terms intact but provide friendly Korean explanations. IMPORTANT: The 'subjects' descriptions must remain in Korean."
+    : "Translate the following JSON values to English. Ensure highly descriptive, professional photography terminology. IMPORTANT: The 'subjects' descriptions MUST REMAIN IN KOREAN and should not be translated to English.";
 
   const prompt = `${instruction}
   
   JSON to translate:
   ${JSON.stringify(guide, null, 2)}
   
-  Ensure the output is a valid JSON object with the exact same keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical".`;
+  Ensure the output is a valid JSON object with the exact same keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical", "subjects".`;
 
   try {
     const response = await withRetry(() => ai.models.generateContent({
@@ -215,7 +230,8 @@ export const translateProductionGuide = async (guide: ProductionGuide, targetLan
       cameraComposition: result.cameraComposition || guide.cameraComposition,
       setBackground: result.setBackground || guide.setBackground,
       lightingMood: result.lightingMood || guide.lightingMood,
-      textureTechnical: result.textureTechnical || guide.textureTechnical
+      textureTechnical: result.textureTechnical || guide.textureTechnical,
+      subjects: result.subjects || guide.subjects
     };
   } catch (e: any) {
     console.error("Translation Error:", e);
@@ -230,7 +246,9 @@ export const generateProductEdit = async (
   aspectRatio: AllowedAspectRatio = "9:16",
   quality: ImageQuality = "2K",
   count: number = 1,
-  mimeType: string = 'image/png'
+  mimeType: string = 'image/png',
+  isProGroup: boolean = false,
+  subjectMapping?: SubjectMap[]
 ): Promise<string[]> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
@@ -240,9 +258,20 @@ export const generateProductEdit = async (
     if (base64Original) {
       parts.push({ text: "[Base Image]: This is the foundational image. You MUST preserve the EXACT layout, composition, background, and overall structure of this image. If there is a person, preserve their pose and skeleton. If there is a main product, preserve its placement and scale." });
       parts.push({ inlineData: { data: getBase64Data(base64Original), mimeType } });
-      parts.push({ text: "Now, using the [Base Image] as your strict template, replace the main subject (person or product) using the following references:" });
+      parts.push({ text: "Now, using the [Base Image] as your strict template, replace the subjects using the following references and mapping:" });
     } else {
       parts.push({ text: "Generate a photorealistic image of the EXACT subject (person or product) shown in the [Subject Reference] images." });
+    }
+
+    // Add mapping instructions if available
+    if (subjectMapping && subjectMapping.length > 0) {
+      const mappingText = subjectMapping
+        .filter(m => m.assignedModelId)
+        .map(m => `- Map [Subject Reference: ${m.assignedModelId?.toUpperCase()}] to the person described as "${m.description}" in the [Base Image].`)
+        .join('\n');
+      if (mappingText) {
+        parts.push({ text: `[SUBJECT MAPPING INSTRUCTIONS]:\n${mappingText}\nEnsure each assigned model is projected onto the correct person in the base image.` });
+      }
     }
 
     categories.forEach((cat) => {
@@ -275,14 +304,27 @@ export const generateProductEdit = async (
       });
     });
 
+    const proGroupProtocol = isProGroup ? `
+[PRO GROUP MODE ACTIVE]:
+- This is a multi-subject group shot (3-4 people).
+- Perform high-resolution regional refinement for every individual subject.
+- Ensure facial features for all people are sharp, distinct, and maintain their specific identities.
+- Render every garment texture with macro-level detail.
+- Maintain perfect spatial relationships and interaction realism between all subjects.
+- Use internal multi-pass processing to ensure no subject is blurred or low-quality.
+` : "";
+
     parts.push({
       text: `TASK: PRODUCE FLAWLESS ADVERTISING ASSET.
       
       DIRECTION:
       ${instruction}
       
+      ${proGroupProtocol}
       ${V30_MASTER_PROTOCOL}`
     });
+
+    const effectiveQuality = isProGroup ? "4K" : quality;
 
     const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
@@ -290,7 +332,7 @@ export const generateProductEdit = async (
       config: {
         imageConfig: {
           aspectRatio: aspectRatio,
-          imageSize: quality as any
+          imageSize: effectiveQuality as any
         },
         seed: generateSafeSeed()
       }
