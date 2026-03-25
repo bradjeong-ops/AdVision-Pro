@@ -19,14 +19,17 @@ export type ImageQuality = "1K" | "2K" | "4K";
 export type ModelViewType = 'front' | 'side' | 'back' | 'item';
 
 const V30_MASTER_PROTOCOL = `
-[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V3.8 MASTER]
-1. COMPOSITION & FRAMING FIDELITY (STRICT):
+[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V4.0 MASTER]
+1. IDENTITY ISOLATION (MULTI-SUBJECT): 
+   - This protocol is optimized for high-fidelity synthesis of 1-4 distinct subjects.
+   - [IDENTITY ISOLATION]: Each subject in the [Base Image] is a "High-Priority Identity Zone". You MUST isolate each zone and apply the mapped identity from the [Subject Reference] and [Face Detail Reference] with 100% fidelity.
+   - [NO IDENTITY LEAKAGE]: Do NOT blend identities. Subject A must look EXACTLY like Model A, and Subject B must look EXACTLY like Model B.
+   - [IDENTITY OVERWRITE]: The face in the [Base Image] is ONLY a guide for expression and angle. You MUST COMPLETELY OVERWRITE it with the facial features, bone structure, skin tone, and unique identity of the [Subject Reference] or [Face Detail Reference].
+   - DO NOT leave any resemblance to the original face in the [Base Image]. This is especially critical for the CENTRAL or most PROMINENT subjects.
+2. COMPOSITION & FRAMING FIDELITY (STRICT):
    - The [Base Image] is your ABSOLUTE template for framing. You MUST maintain the EXACT cropping, camera distance, and scale of the subjects.
    - If a subject is partially cropped in the [Base Image], they MUST be partially cropped in the same way in the generated image.
    - DO NOT zoom out or change the perspective. The spatial relationship between the camera and the subjects must be a 1:1 match.
-2. IDENTITY OVERWRITE (STRICT): 
-   - The face in the [Base Image] is ONLY a guide for expression and angle. You MUST COMPLETELY OVERWRITE it with the facial features, bone structure, skin tone, and unique identity of the [Subject Reference] or [Face Detail Reference].
-   - DO NOT use the face from the [Base Image]. The generated subject MUST be the person from your uploaded model library.
 3. GARMENT REPLACEMENT (STRICT):
    - Replace 100% of the clothing. Use the exact style, color, fabric, and branding from the [Subject Reference] and [Garment Detail Reference].
    - NO INHERITANCE: Do not carry over any clothing items, colors, or patterns from the [Base Image].
@@ -291,13 +294,14 @@ export const generateProductEdit = async (
     }
 
     // Add mapping instructions if available
+    let mappingInstruction = "";
     if (subjectMapping && subjectMapping.length > 0) {
       const mappingText = subjectMapping
         .filter(m => m.assignedModelId)
-        .map(m => `- Map [Subject Reference: ${m.assignedModelId?.toUpperCase()}] to the person described as "${m.description}" in the [Base Image].`)
+        .map(m => `- Map the identity and clothing from [Subject Reference: ${m.assignedModelId?.toUpperCase()}] and [Face Detail Reference: ${m.assignedModelId?.toUpperCase()}] to the person described as "${m.description}" in the [Base Image].`)
         .join('\n');
       if (mappingText) {
-        parts.push({ text: `[SUBJECT MAPPING INSTRUCTIONS]:\n${mappingText}\nEnsure each assigned model is projected onto the correct person in the base image.` });
+        mappingInstruction = `[SUBJECT MAPPING INSTRUCTIONS]:\n${mappingText}\nCRITICAL: You MUST replace the identity of the assigned person COMPLETELY. Do not leave any resemblance to the original person in the [Base Image].\n[MULTI-SUBJECT IDENTITY VERIFICATION]: Before rendering, verify that all 4 subjects have their unique identities assigned correctly. No subject should look like another subject.`;
       }
     }
 
@@ -333,12 +337,12 @@ export const generateProductEdit = async (
 
     const proGroupProtocol = isProGroup ? `
 [PRO GROUP MODE ACTIVE]:
-- This is a multi-subject group shot (3-4 people).
-- Perform high-resolution regional refinement for every individual subject.
-- Ensure facial features for all people are sharp, distinct, and maintain their specific identities.
-- Render every garment texture with macro-level detail.
-- Maintain perfect spatial relationships and interaction realism between all subjects.
-- Use internal multi-pass processing to ensure no subject is blurred or low-quality.
+- This is a complex multi-subject group shot (up to 4 people).
+- [INDIVIDUAL REFINEMENT]: Perform a dedicated high-resolution refinement pass for EACH of the 4 subjects.
+- [IDENTITY LOCK]: Lock the identity of each subject to their specific mapped reference. Ensure no cross-contamination of facial features between subjects.
+- [EXPRESSION SYNC]: Ensure all 4 subjects maintain the emotional energy and expressions from the [Base Image] while wearing the new identities.
+- [DETAIL PARITY]: Every subject, regardless of their position in the frame (foreground or background), must have macro-level detail in skin, eyes, and clothing.
+- [SPATIAL REALISM]: Maintain perfect depth of field and interaction realism between all 4 subjects.
 ` : "";
 
     parts.push({
@@ -347,6 +351,7 @@ export const generateProductEdit = async (
       DIRECTION:
       ${instruction}
       
+      ${mappingInstruction}
       ${proGroupProtocol}
       ${V30_MASTER_PROTOCOL}`
     });
