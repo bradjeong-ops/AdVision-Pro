@@ -233,16 +233,41 @@ const App: React.FC = () => {
     }
   }, [guestPin]);
 
+  // Debounced save to IndexedDB to prevent "Should not already be working" and DataCloneError
   useEffect(() => {
-    if (guestPin && isHistoryLoaded) {
-      set(`synthesisHistory_${guestPin}`, synthesisHistory).catch(console.error);
-    }
+    if (!guestPin || !isHistoryLoaded) return;
+
+    const timer = setTimeout(() => {
+      set(`synthesisHistory_${guestPin}`, synthesisHistory.slice(0, 50))
+        .catch((err: any) => {
+          if (err.message?.includes('Data cannot be cloned') || err.message?.includes('out of memory')) {
+            console.warn("History too large to save, trimming...");
+            setSynthesisHistory(prev => prev.slice(0, 10));
+          } else {
+            console.error("Failed to save synthesis history", err);
+          }
+        });
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, [synthesisHistory, guestPin, isHistoryLoaded]);
 
   useEffect(() => {
-    if (guestPin && isHistoryLoaded) {
-      set(`atmosphereHistory_${guestPin}`, atmosphereHistory).catch(console.error);
-    }
+    if (!guestPin || !isHistoryLoaded) return;
+
+    const timer = setTimeout(() => {
+      set(`atmosphereHistory_${guestPin}`, atmosphereHistory.slice(0, 50))
+        .catch((err: any) => {
+          if (err.message?.includes('Data cannot be cloned') || err.message?.includes('out of memory')) {
+            console.warn("Atmosphere history too large to save, trimming...");
+            setAtmosphereHistory(prev => prev.slice(0, 10));
+          } else {
+            console.error("Failed to save atmosphere history", err);
+          }
+        });
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, [atmosphereHistory, guestPin, isHistoryLoaded]);
 
   const handleGuestLogin = (pin: string) => {
