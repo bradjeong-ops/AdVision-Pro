@@ -19,22 +19,20 @@ export type ImageQuality = "1K" | "2K" | "4K";
 export type ModelViewType = 'front' | 'side' | 'back' | 'item';
 
 const V30_MASTER_PROTOCOL = `
-[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V3.4]
-1. STRUCTURAL TEMPLATE FIDELITY (NON-NEGOTIABLE): 
-   - The [Base Image] is a STRICT SKELETON. You MUST preserve the EXACT pose, limb positions, hand/foot placement, body silhouette, and overall perspective. 
-   - DO NOT alter the subject's physical orientation or the interaction points (e.g., high-fives, holding objects). The subject in the [Base Image] is a "pose dummy".
-2. ABSOLUTE SUBJECT REPLACEMENT: 
-   - The subject's face, hair, and CLOTHING must be derived 100% from the [Subject Reference] and [Garment Detail Reference].
-   - NO INHERITANCE: Absolutely zero clothing items, colors, patterns, or facial features should be carried over from the [Base Image]. 
-3. INTERACTION & CONTACT REALISM:
-   - SEAMLESS CONTACT: Ensure realistic pressure and shadows at contact points (e.g., hands touching). Use "Ambient Occlusion" to ground the subjects in the scene.
-4. PELVIC DYNAMICS & VITALITY:
-   - Capture natural weight shifts (Contrapposto). The hips and shoulders should tilt realistically to reflect the pose's dynamism, avoiding a "stiff" or "cardboard" look.
-5. CANDID EMOTION & EXPRESSION:
-   - Maintain the facial expression (emotion, mouth shape, eye squint) from the [Base Image], but render it using the facial features and identity from the [Subject Reference].
-6. LIGHTING & INTEGRATION:
-   - The new subject MUST be perfectly integrated into the [Base Image]'s lighting environment (directional light, shadows, rim lighting).
-7. PHOTOREALISM: Render with ultra-high photorealistic quality, matching professional high-end advertising photography.
+[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V3.7 MASTER]
+1. IDENTITY OVERWRITE (STRICT): 
+   - The face in the [Base Image] is ONLY a guide for expression and angle. You MUST COMPLETELY OVERWRITE it with the facial features, bone structure, skin tone, and unique identity of the [Subject Reference] or [Face Detail Reference].
+   - DO NOT use the face from the [Base Image]. The generated subject MUST be the person from your uploaded model library.
+2. GARMENT REPLACEMENT (STRICT):
+   - Replace 100% of the clothing. Use the exact style, color, fabric, and branding from the [Subject Reference] and [Garment Detail Reference].
+   - NO INHERITANCE: Do not carry over any clothing items, colors, or patterns from the [Base Image].
+3. EXPRESSION & POSE TRANSFER:
+   - TRANSFER EMOTION: Copy the EXACT facial expression (smile, laughter, intensity, mouth shape) from the [Base Image] and apply it to the NEW identity.
+   - POSE FIDELITY: Maintain the EXACT body pose, limb positions, and head angle from the [Base Image].
+4. SEAMLESS INTEGRATION:
+   - Perform high-precision regional rendering for the face and hands to ensure the new identity is sharp and artifact-free.
+   - Integrate the new subject perfectly into the [Base Image]'s lighting (highlights, shadows, rim light).
+5. PHOTOREALISM: Render with ultra-high photorealistic quality (8K equivalent), matching high-end professional advertising photography.
 `;
 
 const getBase64Data = (url: string) => url.split(',')[1];
@@ -69,20 +67,34 @@ const withRetry = async <T>(fn: () => Promise<T>, maxRetries = 3, initialDelay =
 
 const parseJSON = (str: string) => {
   let cleaned = str.trim();
-  // Extract the first { and last }
-  const match = cleaned.match(/\{[\s\S]*\}/);
-  if (match) {
-    cleaned = match[0];
+  
+  // Find the first '{'
+  const startIdx = cleaned.indexOf('{');
+  if (startIdx === -1) {
+    throw new Error("No JSON object found in response");
+  }
+
+  // Try to find the largest valid JSON object starting from the first '{'
+  // We search backwards from the last '}' to handle potential trailing characters or extra braces
+  for (let i = cleaned.lastIndexOf('}'); i > startIdx; i = cleaned.lastIndexOf('}', i - 1)) {
+    const candidate = cleaned.substring(startIdx, i + 1);
+    
+    // Pre-process candidate to handle common issues like comments and trailing commas
+    let processed = candidate.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    processed = processed.replace(/,\s*([}\]])/g, '$1');
+    
+    try {
+      return JSON.parse(processed);
+    } catch (e) {
+      // Not a valid JSON object yet, keep looking backwards
+    }
   }
   
-  // Remove common JSON errors
-  // 1. Remove comments
-  cleaned = cleaned.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-  // 2. Remove trailing commas
-  cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
-  
+  // Fallback: if no balanced object found, try parsing the whole thing after basic cleanup
   try {
-    return JSON.parse(cleaned);
+    let finalAttempt = cleaned.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    finalAttempt = finalAttempt.replace(/,\s*([}\]])/g, '$1');
+    return JSON.parse(finalAttempt);
   } catch (e) {
     console.error("JSON Parse Error on string:", cleaned);
     throw e;
@@ -155,13 +167,13 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
 
   ${languageInstruction} Follow this exact structured format for each field in a JSON response.
 
-  JSON Keys and required sub-headers for values:
-  - "coreProduction": (Theme, Style, Overall Concept, Subject Focus)
-  - "cameraComposition": (Camera Angle, Focal Length, Aperture, Exposure & ISO, Perspective, Framing & Composition)
-  - "setBackground": (Set Design, Floor Materials, Props, Backdrop, Compositional Elements)
-  - "lightingMood": (Lighting Direction, Highlights, Shadows, Mood, Atmosphere, Color Palette)
-  - "textureTechnical": (Material Texture, Surface Details, Fabric/Skin Pores, Film Grain, Chromatic Aberration, Technical Quality)
-  - "subjects": (An array of objects representing the people/subjects in the image. Each object should have "id" (e.g., "subject_1") and "description" (e.g., "왼쪽의 빨간 자켓을 입은 사람")).
+  JSON Keys and required content:
+  - "coreProduction": Describe the Theme, Style, Overall Concept, and Subject Focus. IMPORTANT: You MUST include detailed descriptions of the subjects' actions, poses, and physical interactions.
+  - "cameraComposition": Describe the Camera Angle, Focal Length, Aperture, Exposure & ISO, Perspective, Framing & Composition.
+  - "setBackground": Describe the Set Design, Floor Materials, Props, Backdrop, and Compositional Elements. CRITICAL: Do NOT mention or describe the subjects' clothing, outfits, or garments in this section. Focus strictly on the environment and props.
+  - "lightingMood": Describe the Lighting Direction, Highlights, Shadows, Mood, Atmosphere, and Color Palette.
+  - "textureTechnical": Describe the Material Texture, Surface Details, Fabric/Skin Pores, Film Grain, Chromatic Aberration, and Technical Quality.
+  - "subjects": An array of objects representing the people/subjects in the image. Each object should have "id" (e.g., "subject_1") and "description" (e.g., "왼쪽의 빨간 자켓을 입은 사람").
 
   CRITICAL INSTRUCTIONS:
   - SUBJECT DETECTION: Identify all distinct people in the image. For each person, provide a clear, concise description of their position and key identifying feature. IMPORTANT: The "description" for subjects MUST ALWAYS be in Korean, even if other fields are in English.
@@ -184,13 +196,24 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
       }
     }));
     const result = parseJSON(response.text || "{}");
+    
+    // Resilient subject mapping
+    const rawSubjects = result.subjects;
+    let subjects = [];
+    if (Array.isArray(rawSubjects)) {
+      subjects = rawSubjects.map((s: any) => ({ ...s, assignedModelId: null }));
+    } else if (typeof rawSubjects === 'string' && rawSubjects.trim()) {
+      // Fallback if model returns a single string instead of an array
+      subjects = [{ id: 'subject_1', description: rawSubjects, assignedModelId: null }];
+    }
+
     return {
       coreProduction: result.coreProduction || "Analysis failed",
       cameraComposition: result.cameraComposition || "Analysis failed",
       setBackground: result.setBackground || "Analysis failed",
       lightingMood: result.lightingMood || "Analysis failed",
       textureTechnical: result.textureTechnical || "Analysis failed",
-      subjects: (result.subjects || []).map((s: any) => ({ ...s, assignedModelId: null }))
+      subjects
     };
   } catch (e: any) {
     console.error("Analysis Error:", e);
