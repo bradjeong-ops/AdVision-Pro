@@ -83,11 +83,13 @@ const App: React.FC = () => {
   const [intensityOutputImage, setIntensityOutputImage] = useState<string | null>(null);
   const [atmosphereHistory, setAtmosphereHistory] = useState<GenerationRecord[]>([]);
 
-  const [intensityParams, setIntensityParams] = useState({
-    color: { selections: [] as string[], weight: 50 },
-    lighting: { selections: [] as string[], weight: 50 },
-    texture: { selections: [] as string[], weight: 50 },
-    grading: { selections: [] as string[], weight: 50 }
+  const [intensityParams, setIntensityParams] = useState<AtmosphereParams>({
+    color: { selections: [] as string[], weight: 50, referenceImage: null },
+    lighting: { selections: [] as string[], weight: 50, referenceImage: null },
+    texture: { selections: [] as string[], weight: 50, referenceImage: null },
+    grading: { selections: [] as string[], weight: 50, referenceImage: null },
+    globalReferenceImage: null,
+    globalIntensity: 50
   });
 
   const [selectedQuality, setSelectedQuality] = useState<ImageQuality>("2K");
@@ -151,7 +153,7 @@ const App: React.FC = () => {
 
   const [generationStep, setGenerationStep] = useState<string | null>(null);
   const [isFullscreenComparing, setIsFullscreenComparing] = useState(false);
-  const [fullscreenCompareMode, setFullscreenCompareMode] = useState<'previous' | 'original' | 'difference'>('previous');
+  const [fullscreenCompareMode, setFullscreenCompareMode] = useState<'previous' | 'original' | 'difference' | 'reference'>('previous');
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'info' | 'error' } | null>(null);
 
@@ -555,7 +557,7 @@ const App: React.FC = () => {
         setIntensityOutputImage(results[0]);
         const newRecords: GenerationRecord[] = await Promise.all(results.map(async (url, idx) => {
           const { ratio } = await getImageDimensions(url);
-          const prompt = `Mastering: [Color:${intensityParams.color.selections.join(', ') || 'None'}(${intensityParams.color.weight}%)] [Light:${intensityParams.lighting.selections.join(', ') || 'None'}(${intensityParams.lighting.weight}%)] [Text:${intensityParams.texture.selections.join(', ') || 'None'}(${intensityParams.texture.weight}%)] [Grading:${intensityParams.grading.selections.join(', ') || 'None'}(${intensityParams.grading.weight}%)]`;
+          const prompt = `Mastering: [Color:${intensityParams.color?.selections?.join(', ') || 'None'}(${intensityParams.color?.weight ?? 50}%)] [Light:${intensityParams.lighting?.selections?.join(', ') || 'None'}(${intensityParams.lighting?.weight ?? 50}%)] [Text:${intensityParams.texture?.selections?.join(', ') || 'None'}(${intensityParams.texture?.weight ?? 50}%)] [Grading:${intensityParams.grading?.selections?.join(', ') || 'None'}(${intensityParams.grading?.weight ?? 50}%)]`;
           return { id: `${Date.now()}-${idx}`, originalImage: targetImage, generatedImage: url, prompt, timestamp: Date.now(), ratio, atmosphereParams: JSON.parse(JSON.stringify(intensityParams)) };
         }));
         setAtmosphereHistory(prev => [...newRecords, ...prev].slice(0, 100));
@@ -569,10 +571,12 @@ const App: React.FC = () => {
 
   const resetIntensityParams = () => {
     setIntensityParams({
-      color: { selections: [], weight: 50 },
-      lighting: { selections: [], weight: 50 },
-      texture: { selections: [], weight: 50 },
-      grading: { selections: [], weight: 50 }
+      color: { selections: [], weight: 50, referenceImage: null },
+      lighting: { selections: [], weight: 50, referenceImage: null },
+      texture: { selections: [], weight: 50, referenceImage: null },
+      grading: { selections: [], weight: 50, referenceImage: null },
+      globalReferenceImage: null,
+      globalIntensity: 50
     });
   };
 
@@ -717,7 +721,15 @@ const App: React.FC = () => {
                     { mode: 'previous' as const, icon: HistoryIcon, label: 'Prev' },
                     { mode: 'original' as const, icon: PhotoIcon, label: 'Orig' },
                     { mode: 'difference' as const, icon: Square2StackIcon, label: 'Diff' },
-                  ].map((item) => (
+                    { mode: 'reference' as const, icon: SparklesIcon, label: 'Ref' },
+                  ].filter(item => {
+                    if (item.mode === 'reference') {
+                      const params = fullscreenData.images[fullscreenData.currentIndex].atmosphereParams;
+                      if (!params) return false;
+                      return !!(params.globalReferenceImage || Object.values(params).some(v => v && typeof v === 'object' && 'referenceImage' in v && v.referenceImage));
+                    }
+                    return true;
+                  }).map((item) => (
                     <div key={item.mode} className="flex flex-col items-center gap-1 group/btn">
                       <button
                         onMouseDown={(e) => { e.stopPropagation(); setFullscreenCompareMode(item.mode); setIsFullscreenComparing(true); }}
@@ -770,7 +782,11 @@ const App: React.FC = () => {
                   src={isFullscreenComparing 
                     ? (fullscreenCompareMode === 'original' 
                         ? (fullscreenData.images[fullscreenData.currentIndex].initial || fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url)
-                        : (fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url))
+                        : (fullscreenCompareMode === 'reference'
+                            ? (fullscreenData.images[fullscreenData.currentIndex].atmosphereParams?.globalReferenceImage || 
+                               (Object.values(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!).find(v => v && typeof v === 'object' && 'referenceImage' in v && v.referenceImage) as any)?.referenceImage || 
+                               fullscreenData.images[fullscreenData.currentIndex].url)
+                            : (fullscreenData.images[fullscreenData.currentIndex].original || fullscreenData.images[fullscreenData.currentIndex].url)))
                     : fullscreenData.images[fullscreenData.currentIndex].url} 
                   className="w-full h-full object-contain rounded-xl shadow-2xl transition-transform duration-200 ease-out" 
                   style={{ 
@@ -848,19 +864,76 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="flex-1 overflow-y-auto pr-2 space-y-6 scrollbar-hide">
-                      {Object.entries(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!).map(([key, value]) => {
-                        const typedValue = value as { weight: number, selections: string[] };
+                      {/* Reference Images Section */}
+                      {(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams?.globalReferenceImage || 
+                        Object.values(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!).some(v => v && typeof v === 'object' && 'referenceImage' in v && v.referenceImage)) && (
+                        <div className="flex flex-col gap-3 pb-6 border-b border-white/5">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-1 h-3 rounded-full ${
+                              (fullscreenData.images[fullscreenData.currentIndex].atmosphereParams?.globalReferenceImage || 
+                               Object.values(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!).some(v => v && typeof v === 'object' && 'referenceImage' in v && v.referenceImage))
+                                ? 'bg-red-500' 
+                                : 'bg-indigo-500/50'
+                            }`} />
+                            <span className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">Reference Images</span>
+                          </div>
+                          <div className="flex flex-wrap gap-3">
+                            {fullscreenData.images[fullscreenData.currentIndex].atmosphereParams?.globalReferenceImage && (
+                              <div className="flex flex-col gap-1.5">
+                                <div className="relative group/ref">
+                                  <img src={fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!.globalReferenceImage!} className="w-16 h-16 rounded-xl object-cover border border-red-500/30 shadow-lg" referrerPolicy="no-referrer" />
+                                  <div className="absolute inset-0 bg-red-600/20 rounded-xl opacity-0 group-hover/ref:opacity-100 transition-opacity" />
+                                  <div className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-red-600 rounded-full text-[6px] font-black text-white uppercase tracking-tighter border border-red-400 shadow-lg">Applied</div>
+                                </div>
+                                <span className="text-[7px] font-black text-red-400 uppercase text-center tracking-widest">Global</span>
+                              </div>
+                            )}
+                            {Object.entries(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!)
+                              .filter(([key, v]) => v && typeof v === 'object' && 'referenceImage' in v && v.referenceImage && key !== 'globalReferenceImage')
+                              .map(([key, v]) => (
+                                <div key={key} className="flex flex-col gap-1.5">
+                                  <div className="relative group/ref">
+                                    <img src={(v as any).referenceImage} className="w-16 h-16 rounded-xl object-cover border border-red-500/20 shadow-lg" referrerPolicy="no-referrer" />
+                                    <div className="absolute inset-0 bg-red-600/10 rounded-xl opacity-0 group-hover/ref:opacity-100 transition-opacity" />
+                                    <div className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-red-600 rounded-full text-[6px] font-black text-white uppercase tracking-tighter border border-red-400 shadow-lg">Applied</div>
+                                  </div>
+                                  <span className="text-[7px] font-black text-slate-500 uppercase text-center tracking-widest">{key}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Object.entries(fullscreenData.images[fullscreenData.currentIndex].atmosphereParams!)
+                        .filter(([key, value]) => value && typeof value === 'object' && 'weight' in value && 'selections' in value && key !== 'globalReferenceImage')
+                        .map(([key, value]) => {
+                        const typedValue = value as { weight: number, selections: string[], referenceImage?: string | null };
+                        const isGlobalRef = !!fullscreenData.images[fullscreenData.currentIndex].atmosphereParams?.globalReferenceImage;
+                        const isStepRef = !!typedValue.referenceImage;
+                        const hasRef = isGlobalRef || isStepRef;
+                        
                         return (
                         <div key={key} className="flex flex-col gap-2 group/item">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="w-1 h-3 bg-indigo-500/50 rounded-full" />
+                              <div className={`w-1 h-3 rounded-full ${hasRef ? 'bg-red-500' : 'bg-indigo-500/50'}`} />
                               <span className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">{key}</span>
+                              {hasRef && (
+                                <span className="text-[6px] font-black px-1.5 py-0.5 bg-red-600/20 text-red-400 border border-red-500/30 rounded-full uppercase tracking-tighter">Ref Applied</span>
+                              )}
                             </div>
-                            <span className="text-[9px] font-black text-indigo-400">{typedValue.weight}%</span>
+                            <span className={`text-[9px] font-black ${hasRef ? 'text-red-400' : 'text-indigo-400'}`}>{typedValue.weight}%</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
-                            {typedValue.selections.length > 0 ? typedValue.selections.map((s, i) => (
+                            {hasRef && !isGlobalRef && isStepRef ? (
+                              <span className="px-2.5 py-1 bg-red-600/10 border border-red-500/20 rounded-lg text-[9px] font-bold text-red-300">
+                                Using Step Reference
+                              </span>
+                            ) : isGlobalRef ? (
+                              <span className="px-2.5 py-1 bg-red-600/10 border border-red-500/20 rounded-lg text-[9px] font-bold text-red-300">
+                                Locked by Global Ref
+                              </span>
+                            ) : typedValue.selections.length > 0 ? typedValue.selections.map((s, i) => (
                               <span key={i} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold text-slate-300">
                                 {s}
                               </span>
