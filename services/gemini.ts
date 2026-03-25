@@ -19,20 +19,24 @@ export type ImageQuality = "1K" | "2K" | "4K";
 export type ModelViewType = 'front' | 'side' | 'back' | 'item';
 
 const V30_MASTER_PROTOCOL = `
-[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V3.7 MASTER]
-1. IDENTITY OVERWRITE (STRICT): 
+[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V3.8 MASTER]
+1. COMPOSITION & FRAMING FIDELITY (STRICT):
+   - The [Base Image] is your ABSOLUTE template for framing. You MUST maintain the EXACT cropping, camera distance, and scale of the subjects.
+   - If a subject is partially cropped in the [Base Image], they MUST be partially cropped in the same way in the generated image.
+   - DO NOT zoom out or change the perspective. The spatial relationship between the camera and the subjects must be a 1:1 match.
+2. IDENTITY OVERWRITE (STRICT): 
    - The face in the [Base Image] is ONLY a guide for expression and angle. You MUST COMPLETELY OVERWRITE it with the facial features, bone structure, skin tone, and unique identity of the [Subject Reference] or [Face Detail Reference].
    - DO NOT use the face from the [Base Image]. The generated subject MUST be the person from your uploaded model library.
-2. GARMENT REPLACEMENT (STRICT):
+3. GARMENT REPLACEMENT (STRICT):
    - Replace 100% of the clothing. Use the exact style, color, fabric, and branding from the [Subject Reference] and [Garment Detail Reference].
    - NO INHERITANCE: Do not carry over any clothing items, colors, or patterns from the [Base Image].
-3. EXPRESSION & POSE TRANSFER:
+4. EXPRESSION & POSE TRANSFER:
    - TRANSFER EMOTION: Copy the EXACT facial expression (smile, laughter, intensity, mouth shape) from the [Base Image] and apply it to the NEW identity.
    - POSE FIDELITY: Maintain the EXACT body pose, limb positions, and head angle from the [Base Image].
-4. SEAMLESS INTEGRATION:
+5. SEAMLESS INTEGRATION:
    - Perform high-precision regional rendering for the face and hands to ensure the new identity is sharp and artifact-free.
    - Integrate the new subject perfectly into the [Base Image]'s lighting (highlights, shadows, rim light).
-5. PHOTOREALISM: Render with ultra-high photorealistic quality (8K equivalent), matching high-end professional advertising photography.
+6. PHOTOREALISM: Render with ultra-high photorealistic quality (8K equivalent), matching high-end professional advertising photography.
 `;
 
 const getBase64Data = (url: string) => url.split(',')[1];
