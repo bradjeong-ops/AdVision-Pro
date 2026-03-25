@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { Language, ProductionGuide } from '../types';
+import { Language, ProductionGuide, AtmosphereParams } from '../types';
 
 export interface CategorizedProduct {
   category: string;
@@ -405,12 +405,7 @@ const weightToAdjective = (weight: number, positive: string) => {
 
 export const adjustAtmosphere = async (
   base64Image: string,
-  params: {
-    color: { selections: string[]; weight: number };
-    lighting: { selections: string[]; weight: number };
-    texture: { selections: string[]; weight: number };
-    grading: { selections: string[]; weight: number };
-  },
+  params: AtmosphereParams,
   aspectRatio: AllowedAspectRatio = "9:16",
   quality: ImageQuality = "2K",
   count: number = 1,
@@ -418,28 +413,55 @@ export const adjustAtmosphere = async (
 ): Promise<string[]> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
-  const colorDesc = params.color.selections.length > 0 ? weightToAdjective(params.color.weight, params.color.selections.join(', ')) : 'None';
-  const lightingDesc = params.lighting.selections.length > 0 ? weightToAdjective(params.lighting.weight, params.lighting.selections.join(', ')) : 'None';
-  const textureDesc = params.texture.selections.length > 0 ? weightToAdjective(params.texture.weight, params.texture.selections.join(', ')) : 'None';
-  const gradingDesc = params.grading.selections.length > 0 ? weightToAdjective(params.grading.weight, params.grading.selections.join(', ')) : 'None';
+  const colorDesc = (params.color?.selections?.length ?? 0) > 0 ? weightToAdjective(params.color?.weight ?? 50, params.color?.selections?.join(', ') ?? '') : 'None';
+  const lightingDesc = (params.lighting?.selections?.length ?? 0) > 0 ? weightToAdjective(params.lighting?.weight ?? 50, params.lighting?.selections?.join(', ') ?? '') : 'None';
+  const textureDesc = (params.texture?.selections?.length ?? 0) > 0 ? weightToAdjective(params.texture?.weight ?? 50, params.texture?.selections?.join(', ') ?? '') : 'None';
+  const gradingDesc = (params.grading?.selections?.length ?? 0) > 0 ? weightToAdjective(params.grading?.weight ?? 50, params.grading?.selections?.join(', ') ?? '') : 'None';
 
   const singleTask = async (index: number) => {
     const parts: any[] = [
       { text: "REFERENCE_IMAGE: The source image to be color-graded." },
       { inlineData: { data: getBase64Data(base64Image), mimeType } },
-      { 
-        text: `TASK: PERFORM PROFESSIONAL MULTI-STEP COLOR GRADING AND LIGHTING ADJUSTMENT.
-        
-        [STEP 1: COLOR & TONE]: ${colorDesc}
-        [STEP 2: ENVIRONMENT & LIGHTING]: ${lightingDesc}
-        [STEP 3: TEXTURE & SURFACE]: ${textureDesc}
-        [STEP 4: CINEMATIC GRADING]: ${gradingDesc}
-        
-        INSTRUCTION:
-        Apply the specified adjustments to the REFERENCE_IMAGE sequentially while maintaining the original structure.
-        ${ATMOSPHERE_MASTER_PROTOCOL}` 
-      }
     ];
+
+    if (params.globalReferenceImage) {
+      parts.push({ text: "GLOBAL_AESTHETIC_REFERENCE: Match the overall color, lighting, texture, and mood of this image exactly." });
+      parts.push({ inlineData: { data: getBase64Data(params.globalReferenceImage), mimeType } });
+    } else {
+      if (params.color.referenceImage) {
+        parts.push({ text: "COLOR_REFERENCE: Match the color palette and tone of this image." });
+        parts.push({ inlineData: { data: getBase64Data(params.color.referenceImage), mimeType } });
+      }
+      if (params.lighting.referenceImage) {
+        parts.push({ text: "LIGHTING_REFERENCE: Match the lighting direction, intensity, and mood of this image." });
+        parts.push({ inlineData: { data: getBase64Data(params.lighting.referenceImage), mimeType } });
+      }
+      if (params.texture.referenceImage) {
+        parts.push({ text: "TEXTURE_REFERENCE: Match the surface details and material quality of this image." });
+        parts.push({ inlineData: { data: getBase64Data(params.texture.referenceImage), mimeType } });
+      }
+      if (params.grading.referenceImage) {
+        parts.push({ text: "GRADING_REFERENCE: Match the final cinematic look and color grading of this image." });
+        parts.push({ inlineData: { data: getBase64Data(params.grading.referenceImage), mimeType } });
+      }
+    }
+
+    const instruction = params.globalReferenceImage 
+      ? "Apply the aesthetic from GLOBAL_AESTHETIC_REFERENCE to the REFERENCE_IMAGE while maintaining its original structure."
+      : `Apply the following adjustments to the REFERENCE_IMAGE sequentially while maintaining the original structure:
+        [STEP 1: COLOR & TONE]: ${params.color.referenceImage ? "Match COLOR_REFERENCE" : colorDesc}
+        [STEP 2: ENVIRONMENT & LIGHTING]: ${params.lighting.referenceImage ? "Match LIGHTING_REFERENCE" : lightingDesc}
+        [STEP 3: TEXTURE & SURFACE]: ${params.texture.referenceImage ? "Match TEXTURE_REFERENCE" : textureDesc}
+        [STEP 4: CINEMATIC GRADING]: ${params.grading.referenceImage ? "Match GRADING_REFERENCE" : gradingDesc}`;
+
+    parts.push({ 
+      text: `TASK: PERFORM PROFESSIONAL MULTI-STEP COLOR GRADING AND LIGHTING ADJUSTMENT.
+      
+      INSTRUCTION:
+      ${instruction}
+      ${ATMOSPHERE_MASTER_PROTOCOL}` 
+    });
+
     const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: { parts },
