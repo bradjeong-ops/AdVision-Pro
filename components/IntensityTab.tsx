@@ -217,6 +217,30 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const handleGlobalImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      updateParam('globalReferenceImage', reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleStepImageDrop = (e: React.DragEvent<HTMLDivElement>, step: keyof AtmosphereParams) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      updateParam(step, { referenceImage: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="flex-1 flex flex-col gap-4 overflow-hidden animate-in fade-in duration-500">
       {/* Top Section: Images */}
@@ -330,6 +354,8 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
               <div 
                 className={`relative w-24 h-24 rounded-2xl border-2 border-dashed overflow-hidden flex items-center justify-center transition-all cursor-pointer ${params.globalReferenceImage ? 'border-indigo-500/50 bg-black/40' : 'border-white/5 bg-black/20 hover:border-indigo-500/30'}`}
                 onClick={() => document.getElementById('global-ref-input')?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={handleGlobalImageDrop}
               >
                 {params.globalReferenceImage ? (
                   <img src={params.globalReferenceImage} className="w-full h-full object-cover" />
@@ -527,6 +553,8 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
                 <div 
                   className={`relative h-20 rounded-xl border-2 border-dashed flex items-center justify-center transition-all cursor-pointer overflow-hidden ${params[activeStep as keyof typeof params]?.referenceImage ? 'border-red-500/50 bg-black/40' : 'border-white/5 bg-black/20 hover:border-indigo-500/30'}`}
                   onClick={() => document.getElementById(`step-ref-input-${activeStep}`)?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => handleStepImageDrop(e, activeStep as any)}
                 >
                   {params[activeStep as keyof typeof params]?.referenceImage ? (
                     <div className="flex items-center gap-3 px-4 w-full">
