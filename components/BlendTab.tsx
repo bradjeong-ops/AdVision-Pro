@@ -15,7 +15,7 @@ import CategorySection from './CategorySection';
 import HistoryPanel from './HistoryPanel';
 import { AppStatus, GenerationRecord } from '../types';
 import { AllowedAspectRatio, ImageQuality, SubjectMap } from '../services/gemini';
-import { UserIcon } from './Icons';
+import { UserIcon, ExclamationTriangleIcon } from './Icons';
 
 interface BlendTabProps {
   language: 'en' | 'ko';
@@ -123,9 +123,9 @@ const BlendTab: React.FC<BlendTabProps> = ({
               })}
             >
               {outputImage ? (
-                <>
+                <div className="relative h-full" style={{ aspectRatio: selectedRatio === '9:16' ? '9/16' : selectedRatio === '16:9' ? '16/9' : '1/1' }}>
                   <img src={isComparing ? inputImage! : outputImage} className="w-full h-full object-contain" />
-                  <div className="absolute top-4 right-4 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => e.stopPropagation()}>
+                  <div className="absolute top-4 right-4 flex flex-col gap-3 transition-all" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => onOpenFullscreen(outputImage, inputImage || undefined, undefined, {
                       coreProduction: coreProductionPrompt,
                       cameraComposition: cameraCompositionPrompt,
@@ -151,7 +151,7 @@ const BlendTab: React.FC<BlendTabProps> = ({
                       <span className="text-[9px] font-black text-white uppercase tracking-widest">Pose Sync Lock: 1:1 ACTIVE</span>
                     </div>
                   </div>
-                </>
+                </div>
               ) : <div className="flex flex-col items-center gap-4 opacity-10"><SparklesIcon className="w-16 h-16" /><span className="text-xs font-black uppercase tracking-widest">Awaiting Pose-Synced Synthesis</span></div>}
             </div>
           </div>
@@ -234,8 +234,8 @@ const BlendTab: React.FC<BlendTabProps> = ({
             </div>
            </div>
 
-           {isProGroup && subjectMapping.length > 0 && (
-             <div className="flex flex-col gap-4 p-5 bg-indigo-500/5 border border-indigo-500/10 rounded-3xl">
+           {subjectMapping.length > 0 && (
+             <div className={`flex flex-col gap-4 p-5 rounded-3xl transition-all ${isProGroup ? 'bg-indigo-500/5 border border-indigo-500/10' : 'bg-black/40 border border-white/5'}`}>
                <div className="flex items-center justify-between">
                  <div className="flex items-center gap-2">
                    <div className="p-1.5 bg-indigo-500/20 rounded-lg">
@@ -243,7 +243,14 @@ const BlendTab: React.FC<BlendTabProps> = ({
                    </div>
                    <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-indigo-300">Subject Mapping (Group Blend)</h3>
                  </div>
-                 <span className="text-[9px] font-bold text-indigo-500/50 uppercase tracking-widest">Assign models to detected subjects</span>
+                 {!isProGroup && subjectMapping.length > 2 ? (
+                   <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg animate-pulse">
+                     <ExclamationTriangleIcon className="w-3 h-3 text-amber-500" />
+                     <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Enable PRO MODE for 3+ people</span>
+                   </div>
+                 ) : (
+                   <span className="text-[9px] font-bold text-indigo-500/50 uppercase tracking-widest">Assign models to detected subjects</span>
+                 )}
                </div>
                
                <div className="grid grid-cols-1 gap-3">
