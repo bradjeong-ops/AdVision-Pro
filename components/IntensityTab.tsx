@@ -232,11 +232,11 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
             onClick={() => outputImage && !isComparing && onOpenFullscreen(outputImage, inputImage || undefined, initialImage || undefined)}
           >
             {outputImage ? (
-              <>
+              <div className="relative h-full" style={{ aspectRatio: selectedRatio === '9:16' ? '9/16' : selectedRatio === '16:9' ? '16/9' : '1/1' }}>
                 <div className="relative w-full h-full bg-black">
                   <img src={isComparing ? inputImage! : outputImage} className="w-full h-full object-contain" />
                 </div>
-                <div className="absolute top-4 right-4 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => e.stopPropagation()}>
+                <div className="absolute top-4 right-4 flex flex-col gap-3 transition-all" onClick={(e) => e.stopPropagation()}>
                   <button onClick={() => onOpenFullscreen(outputImage, inputImage || undefined, initialImage || undefined)} className="w-10 h-10 bg-black/60 rounded-full text-white hover:bg-blue-600 flex items-center justify-center border border-white/10" title="Maximize & Compare">
                     <ArrowsPointingOutIcon className="w-5 h-5" />
                   </button>
@@ -259,7 +259,7 @@ const IntensityTab: React.FC<IntensityTabProps> = ({
                     <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Click to Compare (A/B)</span>
                   </div>
                 </div>
-              </>
+              </div>
             ) : (
               <div className="flex flex-col items-center gap-4 opacity-10">
                 <SparklesIcon className="w-16 h-16" />
