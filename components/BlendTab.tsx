@@ -14,7 +14,8 @@ import {
 import CategorySection from './CategorySection';
 import HistoryPanel from './HistoryPanel';
 import { AppStatus, GenerationRecord } from '../types';
-import { AllowedAspectRatio, ImageQuality } from '../services/gemini';
+import { AllowedAspectRatio, ImageQuality, SubjectMap } from '../services/gemini';
+import { UserIcon } from './Icons';
 
 interface BlendTabProps {
   language: 'en' | 'ko';
@@ -44,6 +45,11 @@ interface BlendTabProps {
   setSelectedQuality: (q: ImageQuality) => void;
   selectedCount: number;
   setSelectedCount: (c: number) => void;
+  isProGroup: boolean;
+  setIsProGroup: (v: boolean) => void;
+  subjectMapping: SubjectMap[];
+  setSubjectMapping: React.Dispatch<React.SetStateAction<SubjectMap[]>>;
+  generationStep: string | null;
   processEditing: () => void;
   downloadImage: (url: string, filename: string) => void;
   onSelectHistory: (idx: number) => void;
@@ -64,7 +70,9 @@ const BlendTab: React.FC<BlendTabProps> = ({
   lightingMoodPrompt, setLightingMoodPrompt,
   textureTechnicalPrompt, setTextureTechnicalPrompt,
   selectedRatio, setSelectedRatio, selectedQuality, setSelectedQuality,
-  selectedCount, setSelectedCount, processEditing, downloadImage,
+  selectedCount, setSelectedCount, isProGroup, setIsProGroup, 
+  subjectMapping, setSubjectMapping,
+  generationStep, processEditing, downloadImage,
   onSelectHistory, onTransferToIntensity, handleFileUpload, handleDropUpload, onClearCategory,
   onOpenFullscreen
 }) => {
@@ -73,6 +81,8 @@ const BlendTab: React.FC<BlendTabProps> = ({
 
   const id1Refs = { front: useRef<HTMLInputElement>(null), side: useRef<HTMLInputElement>(null), back: useRef<HTMLInputElement>(null), face: useRef<HTMLInputElement>(null), detail: useRef<HTMLInputElement>(null) };
   const id2Refs = { front: useRef<HTMLInputElement>(null), side: useRef<HTMLInputElement>(null), back: useRef<HTMLInputElement>(null), face: useRef<HTMLInputElement>(null), detail: useRef<HTMLInputElement>(null) };
+  const id3Refs = { front: useRef<HTMLInputElement>(null), side: useRef<HTMLInputElement>(null), back: useRef<HTMLInputElement>(null), face: useRef<HTMLInputElement>(null), detail: useRef<HTMLInputElement>(null) };
+  const id4Refs = { front: useRef<HTMLInputElement>(null), side: useRef<HTMLInputElement>(null), back: useRef<HTMLInputElement>(null), face: useRef<HTMLInputElement>(null), detail: useRef<HTMLInputElement>(null) };
   const otherRefs = { front: useRef<HTMLInputElement>(null), side: useRef<HTMLInputElement>(null), back: useRef<HTMLInputElement>(null), face: useRef<HTMLInputElement>(null), detail: useRef<HTMLInputElement>(null) };
 
   return (
@@ -224,6 +234,60 @@ const BlendTab: React.FC<BlendTabProps> = ({
             </div>
            </div>
 
+           {isProGroup && subjectMapping.length > 0 && (
+             <div className="flex flex-col gap-4 p-5 bg-indigo-500/5 border border-indigo-500/10 rounded-3xl">
+               <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                   <div className="p-1.5 bg-indigo-500/20 rounded-lg">
+                     <UserIcon className="w-3.5 h-3.5 text-indigo-400" />
+                   </div>
+                   <h3 className="text-[11px] font-black uppercase tracking-[0.15em] text-indigo-300">Subject Mapping (Group Blend)</h3>
+                 </div>
+                 <span className="text-[9px] font-bold text-indigo-500/50 uppercase tracking-widest">Assign models to detected subjects</span>
+               </div>
+               
+               <div className="grid grid-cols-1 gap-3">
+                 {subjectMapping.map((subject, idx) => (
+                   <div key={subject.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-black/40 p-4 rounded-2xl border border-white/5 hover:border-indigo-500/20 transition-all group">
+                     <div className="flex items-center gap-3 flex-1 min-w-0">
+                       <div className="w-8 h-8 shrink-0 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors">
+                         <span className="text-[10px] font-black text-indigo-400">{idx + 1}</span>
+                       </div>
+                       <div className="flex flex-col gap-0.5 min-w-0">
+                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Detected Subject</span>
+                         <p className="text-[11px] font-medium text-slate-300 leading-relaxed break-words">
+                           {subject.description}
+                         </p>
+                       </div>
+                     </div>
+                     
+                     <div className="flex items-center gap-3 shrink-0">
+                       <div className="w-px h-8 bg-white/5 hidden sm:block" />
+                       <div className="flex flex-col gap-1.5 w-full sm:w-40">
+                         <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest sm:text-right">Assign Model</span>
+                         <select 
+                           value={subject.assignedModelId || ''} 
+                           onChange={(e) => {
+                             const newMapping = [...subjectMapping];
+                             newMapping[idx].assignedModelId = e.target.value || null;
+                             setSubjectMapping(newMapping);
+                           }}
+                           className="w-full bg-[#0f141e] text-[11px] font-bold text-indigo-400 border border-white/10 rounded-xl px-3 py-2 outline-none focus:ring-2 ring-indigo-500/30 transition-all appearance-none cursor-pointer hover:border-indigo-500/50"
+                         >
+                           <option value="">Select Model</option>
+                           <option value="id1">MODEL #1 (Primary)</option>
+                           <option value="id2">MODEL #2</option>
+                           <option value="id3">MODEL #3</option>
+                           <option value="id4">MODEL #4</option>
+                         </select>
+                       </div>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+           )}
+
            <div className="flex flex-wrap gap-6 items-end">
               <div className="flex flex-col gap-2">
                 <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Render Quality</label>
@@ -254,10 +318,20 @@ const BlendTab: React.FC<BlendTabProps> = ({
                   }`}
                 >
                   {status === AppStatus.GENERATING ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>생성 중...</span>
-                    </>
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>{language === 'ko' ? '생성 중...' : 'GENERATING...'}</span>
+                      </div>
+                      {isProGroup && generationStep && (
+                        <div className="flex flex-col items-center gap-1.5 mt-1">
+                          <span className="text-[10px] font-bold text-indigo-300/80 animate-pulse tracking-widest">{generationStep}</span>
+                          <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500 animate-[progress_15s_ease-in-out_infinite]" style={{ width: '100%' }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ) : isAnalyzing ? (
                     <>
                       <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" />
@@ -287,13 +361,36 @@ const BlendTab: React.FC<BlendTabProps> = ({
 
       <div className="col-span-4 h-full overflow-hidden flex flex-col">
         <div className="bg-[#0f141e] rounded-[40px] border border-white/5 shadow-2xl flex-1 flex flex-col overflow-hidden">
-          <div className="flex items-center gap-2 px-8 py-6 border-b border-white/5 shrink-0">
-            <CameraIcon className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-300">Model&Item</h2>
+          <div className="flex items-center justify-between px-6 py-6 border-b border-white/5 shrink-0">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <CameraIcon className="w-5 h-5 text-indigo-400 shrink-0" />
+              <h2 className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-300 truncate">Model&Item</h2>
+            </div>
+            <div className="flex items-center gap-3 bg-black/40 px-3 py-1.5 rounded-2xl border border-white/10 shrink-0 ml-2">
+               <span className={`text-[10px] font-black uppercase tracking-widest select-none whitespace-nowrap ${isProGroup ? 'text-indigo-400' : 'text-slate-600'}`}>
+                 PRO
+               </span>
+               <button 
+                 onClick={() => setIsProGroup(!isProGroup)}
+                 style={{ width: '44px', height: '24px' }}
+                 className={`${isProGroup ? 'bg-indigo-600' : 'bg-slate-700'} relative flex shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none`}
+               >
+                 <span 
+                   style={{ left: isProGroup ? '22px' : '2px' }}
+                   className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200 ease-in-out" 
+                 />
+               </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
             <CategorySection title="MODEL #1" category="id1" categorizedProducts={categorizedProducts} setCategorizedProducts={setCategorizedProducts} frontInputRef={id1Refs.front} sideInputRef={id1Refs.side} backInputRef={id1Refs.back} faceInputRef={id1Refs.face} detailInputRef={id1Refs.detail} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClear={onClearCategory} />
             <CategorySection title="MODEL #2" category="id2" categorizedProducts={categorizedProducts} setCategorizedProducts={setCategorizedProducts} frontInputRef={id2Refs.front} sideInputRef={id2Refs.side} backInputRef={id2Refs.back} faceInputRef={id2Refs.face} detailInputRef={id2Refs.detail} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClear={onClearCategory} />
+            {isProGroup && (
+              <>
+                <CategorySection title="MODEL #3" category="id3" categorizedProducts={categorizedProducts} setCategorizedProducts={setCategorizedProducts} frontInputRef={id3Refs.front} sideInputRef={id3Refs.side} backInputRef={id3Refs.back} faceInputRef={id3Refs.face} detailInputRef={id3Refs.detail} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClear={onClearCategory} />
+                <CategorySection title="MODEL #4" category="id4" categorizedProducts={categorizedProducts} setCategorizedProducts={setCategorizedProducts} frontInputRef={id4Refs.front} sideInputRef={id4Refs.side} backInputRef={id4Refs.back} faceInputRef={id4Refs.face} detailInputRef={id4Refs.detail} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClear={onClearCategory} />
+              </>
+            )}
             <CategorySection title="PROPS" category="other" categorizedProducts={categorizedProducts} setCategorizedProducts={setCategorizedProducts} frontInputRef={otherRefs.front} sideInputRef={otherRefs.side} backInputRef={otherRefs.back} faceInputRef={otherRefs.face} detailInputRef={otherRefs.detail} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClear={onClearCategory} />
           </div>
         </div>
