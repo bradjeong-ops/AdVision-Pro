@@ -43,4 +43,5 @@ export interface ProductionGuide {
   setBackground: string;
   lightingMood: string;
   textureTechnical: string;
+  subjects?: { id: string; description: string }[];
 }
