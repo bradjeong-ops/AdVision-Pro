@@ -248,7 +248,18 @@ const BlendTab: React.FC<BlendTabProps> = ({
                
                <div className="grid grid-cols-1 gap-3">
                  {subjectMapping.map((subject, idx) => (
-                   <div key={subject.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-black/40 p-4 rounded-2xl border border-white/5 hover:border-indigo-500/20 transition-all group">
+                   <div key={subject.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-black/40 p-4 rounded-2xl border border-white/5 hover:border-indigo-500/20 transition-all group relative">
+                     <button 
+                       onClick={() => {
+                         const newMapping = subjectMapping.filter((_, i) => i !== idx);
+                         setSubjectMapping(newMapping);
+                       }}
+                       className="absolute -top-2 -right-2 w-6 h-6 bg-red-500/80 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10 shadow-lg"
+                       title="Remove Subject"
+                     >
+                       <TrashIcon className="w-3 h-3" />
+                     </button>
+                     
                      <div className="flex items-center gap-3 flex-1 min-w-0">
                        <div className="w-8 h-8 shrink-0 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors">
                          <span className="text-[10px] font-black text-indigo-400">{idx + 1}</span>
