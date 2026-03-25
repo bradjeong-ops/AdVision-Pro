@@ -28,7 +28,8 @@ import {
   CategorizedProduct, 
   AllowedAspectRatio, 
   ImageQuality,
-  ModelViewType
+  ModelViewType,
+  SubjectMap
 } from './services/gemini';
 import BlendTab from './components/BlendTab';
 import IntensityTab from './components/IntensityTab';
@@ -37,7 +38,7 @@ import { get, set } from 'idb-keyval';
 
 const getAIStudio = () => (window as any).aistudio;
 
-type CategoryKey = 'id1' | 'id2' | 'other';
+type CategoryKey = 'id1' | 'id2' | 'id3' | 'id4' | 'other';
 type TabKey = 'synthesis' | 'atmosphere';
 
 interface CategoryData {
@@ -100,6 +101,8 @@ const App: React.FC = () => {
   const [categorizedProducts, setCategorizedProducts] = useState<Record<CategoryKey, CategoryData>>({
     id1: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false },
     id2: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false },
+    id3: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false },
+    id4: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false },
     other: { mains: { front: null, side: null, back: null, face: null }, details: [], items: [], isAnalyzing: false }
   });
 
@@ -108,7 +111,45 @@ const App: React.FC = () => {
   const [setBackgroundPrompt, setSetBackgroundPrompt] = useState('');
   const [lightingMoodPrompt, setLightingMoodPrompt] = useState('');
   const [textureTechnicalPrompt, setTextureTechnicalPrompt] = useState('');
+  const [subjectMapping, setSubjectMapping] = useState<SubjectMap[]>([]);
   const [selectedRatio, setSelectedRatio] = useState<AllowedAspectRatio>("9:16");
+  const [isProGroup, setIsProGroupState] = useState(false);
+  
+  const setIsProGroup = async (val: boolean) => {
+    setIsProGroupState(val);
+    if (val) {
+      setSelectedQuality("4K");
+      // Ensure subjects are in Korean when Pro mode is activated
+      if (subjectMapping.length > 0) {
+        // Check if descriptions contain English (indicating they might need translation to Korean)
+        const hasEnglish = subjectMapping.some(s => /[a-zA-Z]{4,}/.test(s.description));
+        if (hasEnglish) {
+          setIsAnalyzing(true);
+          try {
+            const currentGuide = {
+              coreProduction: coreProductionPrompt,
+              cameraComposition: cameraCompositionPrompt,
+              setBackground: setBackgroundPrompt,
+              lightingMood: lightingMoodPrompt,
+              textureTechnical: textureTechnicalPrompt,
+              subjects: subjectMapping
+            };
+            // Always translate to Korean for subjects
+            const translated = await translateProductionGuide(currentGuide, 'ko');
+            setSubjectMapping(translated.subjects || []);
+          } catch (err) {
+            console.error("Subject translation to Korean failed:", err);
+          } finally {
+            setIsAnalyzing(false);
+          }
+        }
+      }
+    } else {
+      setSelectedQuality("2K");
+    }
+  };
+
+  const [generationStep, setGenerationStep] = useState<string | null>(null);
   const [isFullscreenComparing, setIsFullscreenComparing] = useState(false);
   const [fullscreenCompareMode, setFullscreenCompareMode] = useState<'previous' | 'original' | 'difference'>('previous');
   const [error, setError] = useState<string | null>(null);
@@ -309,6 +350,13 @@ const App: React.FC = () => {
               setSetBackgroundPrompt(analysis.setBackground);
               setLightingMoodPrompt(analysis.lightingMood);
               setTextureTechnicalPrompt(analysis.textureTechnical);
+              setSubjectMapping(analysis.subjects || []);
+              
+              // Automatically enable Pro Group mode if 3 or more subjects are detected
+              if (analysis.subjects && analysis.subjects.length >= 3) {
+                setIsProGroup(true);
+                showToast(language === 'ko' ? '3명 이상의 인물이 감지되어 PRO 그룹 모드가 활성화되었습니다.' : '3 or more subjects detected. PRO Group mode activated.', 'info');
+              }
             } catch (err: any) { 
               console.error(err); 
               showToast(err.message || '이미지 분석 중 오류가 발생했습니다.', 'error');
@@ -408,11 +456,25 @@ const App: React.FC = () => {
     if (!hasApiKey) { await handleOpenKeyDialog(); return; }
     setStatus(AppStatus.GENERATING);
     setError(null);
+    
+    let stepInterval: any;
+    if (isProGroup) {
+      const steps = language === 'ko' 
+        ? ["그룹 구도 분석 중...", "스켈레톤 및 포즈 매핑 중...", "베이스 환경 렌더링 중...", "인물 #1 디테일 강화 중...", "인물 #2 디테일 강화 중...", "인물 #3 디테일 강화 중...", "최종 고해상도 병합 중..."]
+        : ["Analyzing Group Composition...", "Mapping Skeletons & Poses...", "Rendering Base Environment...", "Refining Subject #1 Details...", "Refining Subject #2 Details...", "Refining Subject #3 Details...", "Finalizing High-Res Merge..."];
+      let currentStep = 0;
+      setGenerationStep(steps[0]);
+      stepInterval = setInterval(() => {
+        currentStep++;
+        if (currentStep < steps.length) setGenerationStep(steps[currentStep]);
+      }, 4500);
+    }
+
     try {
       const categoriesPayload: CategorizedProduct[] = (Object.entries(categorizedProducts) as [string, CategoryData][]).map(([key, val]) => ({
         category: key, mains: val.mains, details: val.details, items: val.items
       }));
-      const results = await generateProductEdit(blendInputImage, categoriesPayload, combinedPrompt, selectedRatio, selectedQuality, selectedCount);
+      const results = await generateProductEdit(blendInputImage, categoriesPayload, combinedPrompt, selectedRatio, selectedQuality, selectedCount, 'image/png', isProGroup, subjectMapping);
       if (results.length > 0) {
         setBlendOutputImage(results[0]);
         const newRecords: GenerationRecord[] = await Promise.all(results.map(async (url, idx) => {
@@ -450,6 +512,9 @@ const App: React.FC = () => {
         setHasApiKey(false);
       }
       setError(displayMsg);
+    } finally {
+      if (stepInterval) clearInterval(stepInterval);
+      setGenerationStep(null);
     }
   };
 
@@ -918,7 +983,9 @@ const App: React.FC = () => {
             setBackgroundPrompt={setBackgroundPrompt} setSetBackgroundPrompt={setSetBackgroundPrompt}
             lightingMoodPrompt={lightingMoodPrompt} setLightingMoodPrompt={setLightingMoodPrompt}
             textureTechnicalPrompt={textureTechnicalPrompt} setTextureTechnicalPrompt={setTextureTechnicalPrompt}
+            isProGroup={isProGroup} setIsProGroup={setIsProGroup} generationStep={generationStep}
             selectedRatio={selectedRatio} setSelectedRatio={setSelectedRatio} selectedQuality={selectedQuality} setSelectedQuality={setSelectedQuality} selectedCount={selectedCount} setSelectedCount={setSelectedCount} processEditing={processEditing} downloadImage={downloadImage} onSelectHistory={(idx) => setFullscreenData({ images: synthesisHistory.map(h => ({ url: h.generatedImage, original: h.originalImage, ratio: h.ratio, productionGuide: h.productionGuide })), currentIndex: idx })} onTransferToIntensity={useAsIntensityRef} handleFileUpload={handleFileUpload} handleDropUpload={handleDropUpload} onClearCategory={handleClearCategory} onOpenFullscreen={async (url, original, initial, productionGuide) => { const {ratio} = await getImageDimensions(url); setFullscreenData({ images: [{ url, original, initial, ratio, productionGuide }], currentIndex: 0 }); }}
+            subjectMapping={subjectMapping} setSubjectMapping={setSubjectMapping}
           />
         ) : (
           <IntensityTab
