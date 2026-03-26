@@ -19,27 +19,32 @@ export type ImageQuality = "1K" | "2K" | "4K";
 export type ModelViewType = 'front' | 'side' | 'back' | 'item';
 
 const V30_MASTER_PROTOCOL = `
-[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V4.0 MASTER]
+[CRITICAL INSTRUCTIONS FOR SUBJECT REPLACEMENT - V4.5 MASTER]
 1. IDENTITY ISOLATION (MULTI-SUBJECT): 
    - This protocol is optimized for high-fidelity synthesis of 1-4 distinct subjects.
    - [IDENTITY ISOLATION]: Each subject in the [Base Image] is a "High-Priority Identity Zone". You MUST isolate each zone and apply the mapped identity from the [Subject Reference] and [Face Detail Reference] with 100% fidelity.
    - [NO IDENTITY LEAKAGE]: Do NOT blend identities. Subject A must look EXACTLY like Model A, and Subject B must look EXACTLY like Model B.
    - [IDENTITY OVERWRITE]: The face in the [Base Image] is ONLY a guide for expression and angle. You MUST COMPLETELY OVERWRITE it with the facial features, bone structure, skin tone, and unique identity of the [Subject Reference] or [Face Detail Reference].
    - DO NOT leave any resemblance to the original face in the [Base Image]. This is especially critical for the CENTRAL or most PROMINENT subjects.
-2. COMPOSITION & FRAMING FIDELITY (STRICT):
+2. PROFESSIONAL POSING REFINEMENT (HIGH-END DIRECTING):
+   - [CONTRAPPOSTO]: Refine the subject's weight distribution to follow a professional 'Contrapposto' stance. Shift the weight to one leg, creating a natural, dynamic curve in the hips and a slight counter-tilt in the shoulders.
+   - [PELVIC ALIGNMENT]: Ensure the pelvis is angled with professional poise, avoiding a flat or static front-facing look.
+   - [LIMB TENSION]: Add subtle muscle tension to limbs to convey a professional, high-energy model presence.
+3. MICRO-EXPRESSION & FACIAL MASTERING:
+   - [FACIAL MICRO-ROTATION]: Apply professional 'Chin Tuck' or 'Chin Up' adjustments to define the jawline. Rotate the head slightly (3/4 view) to maximize facial depth and dimensionality.
+   - [MICRO-EXPRESSIONS]: Render subtle, high-end facial details: a slight asymmetric lift of one eyebrow, 'Smize' (smiling with eyes), and precise lip tension that conveys sophisticated mood rather than a generic smile.
+   - [EYE-GAZE PRECISION]: Maintain absolute mathematical precision in pupil symmetry and gaze direction.
+4. COMPOSITION & FRAMING FIDELITY (STRICT):
    - The [Base Image] is your ABSOLUTE template for framing. You MUST maintain the EXACT cropping, camera distance, and scale of the subjects.
    - If a subject is partially cropped in the [Base Image], they MUST be partially cropped in the same way in the generated image.
    - DO NOT zoom out or change the perspective. The spatial relationship between the camera and the subjects must be a 1:1 match.
-3. GARMENT REPLACEMENT (STRICT):
+5. GARMENT REPLACEMENT (STRICT):
    - Replace 100% of the clothing. Use the exact style, color, fabric, and branding from the [Subject Reference] and [Garment Detail Reference].
    - NO INHERITANCE: Do not carry over any clothing items, colors, or patterns from the [Base Image].
-4. EXPRESSION & POSE TRANSFER:
-   - TRANSFER EMOTION: Copy the EXACT facial expression (smile, laughter, intensity, mouth shape) from the [Base Image] and apply it to the NEW identity.
-   - POSE FIDELITY: Maintain the EXACT body pose, limb positions, and head angle from the [Base Image].
-5. SEAMLESS INTEGRATION:
+6. SEAMLESS INTEGRATION:
    - Perform high-precision regional rendering for the face and hands to ensure the new identity is sharp and artifact-free.
    - Integrate the new subject perfectly into the [Base Image]'s lighting (highlights, shadows, rim light).
-6. PHOTOREALISM: Render with ultra-high photorealistic quality (8K equivalent), matching high-end professional advertising photography.
+7. PHOTOREALISM: Render with ultra-high photorealistic quality (8K equivalent), matching high-end professional advertising photography.
 `;
 
 const getBase64Data = (url: string) => url.split(',')[1];
@@ -180,7 +185,9 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   - "setBackground": Describe the Set Design, Floor Materials, Props, Backdrop, and Compositional Elements. CRITICAL: Do NOT mention or describe the subjects' clothing, outfits, or garments in this section. Focus strictly on the environment and props.
   - "lightingMood": Describe the Lighting Direction, Highlights, Shadows, Mood, Atmosphere, and Color Palette.
   - "textureTechnical": Describe the Material Texture, Surface Details, Fabric/Skin Pores, Film Grain, Chromatic Aberration, and Technical Quality.
-  - "subjects": An array of objects representing the people/subjects in the image. Each object should have "id" (e.g., "subject_1") and "description" (e.g., "왼쪽의 빨간 자켓을 입은 사람").
+  - "subjects": A standard JSON array of objects. Each object MUST have "id" and "description" keys. 
+    Example of correct "subjects" format: [{"id": "subject_1", "description": "..."}, {"id": "subject_2", "description": "..."}]
+    DO NOT use keys for the array elements like "subject_1": {}.
 
   CRITICAL INSTRUCTIONS:
   - SUBJECT DETECTION: Identify all distinct people in the image. For each person, provide a clear, concise description of their position and key identifying feature. IMPORTANT: The "description" for subjects MUST ALWAYS be in Korean, even if other fields are in English.
@@ -193,7 +200,29 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
     const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       config: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: "OBJECT" as any,
+          properties: {
+            coreProduction: { type: "STRING" as any },
+            cameraComposition: { type: "STRING" as any },
+            setBackground: { type: "STRING" as any },
+            lightingMood: { type: "STRING" as any },
+            textureTechnical: { type: "STRING" as any },
+            subjects: {
+              type: "ARRAY" as any,
+              items: {
+                type: "OBJECT" as any,
+                properties: {
+                  id: { type: "STRING" as any },
+                  description: { type: "STRING" as any }
+                },
+                required: ["id", "description"]
+              }
+            }
+          },
+          required: ["coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical", "subjects"]
+        }
       },
       contents: {
         parts: [
@@ -244,13 +273,38 @@ export const translateProductionGuide = async (guide: ProductionGuide, targetLan
   JSON to translate:
   ${JSON.stringify(guide, null, 2)}
   
+  IMPORTANT: Ensure the 'subjects' field remains a standard JSON array of objects: [{"id": "...", "description": "..."}, ...]. 
+  DO NOT use keys for the array elements like "subject_1": {}.
+  
   Ensure the output is a valid JSON object with the exact same keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical", "subjects".`;
 
   try {
     const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       config: {
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: "OBJECT" as any,
+          properties: {
+            coreProduction: { type: "STRING" as any },
+            cameraComposition: { type: "STRING" as any },
+            setBackground: { type: "STRING" as any },
+            lightingMood: { type: "STRING" as any },
+            textureTechnical: { type: "STRING" as any },
+            subjects: {
+              type: "ARRAY" as any,
+              items: {
+                type: "OBJECT" as any,
+                properties: {
+                  id: { type: "STRING" as any },
+                  description: { type: "STRING" as any }
+                },
+                required: ["id", "description"]
+              }
+            }
+          },
+          required: ["coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical", "subjects"]
+        }
       },
       contents: [{ parts: [{ text: prompt }] }]
     }));
