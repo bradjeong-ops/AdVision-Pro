@@ -53,7 +53,7 @@ interface CategoryData {
   isAnalyzing: boolean;
 }
 
-const BASE_SYNTHESIS_PROMPT = 'Professional Studio Master Asset: Execute flawless synthesis of each MODEL from the Identity Library with absolute identity preservation. Achieve ultra-high-resolution details equivalent to Hasselblad medium-format captures (Sharp texture, Natural skin pores, Zero artifacts). Maintain mathematical precision in eye-gaze direction and pupil symmetry to eliminate any unnatural gaze. Render all garment and footwear libraries with 100% commercial-grade integrity.';
+const BASE_SYNTHESIS_PROMPT = 'Professional Studio Master Asset: Execute flawless synthesis of each MODEL from the Identity Library with absolute identity preservation. Achieve ultra-high-resolution details equivalent to Hasselblad medium-format captures (Sharp texture, Natural skin pores, Zero artifacts). [PROFESSIONAL DIRECTING]: Refine the subject with a "Contrapposto" stance, shifting weight for a dynamic pelvic tilt. Apply "Chin Tuck" and subtle facial micro-rotations (3/4 view) to define the jawline and add depth. Render sophisticated micro-expressions including "Smize" and asymmetric eyebrow lifts for a high-fashion editorial mood. Maintain mathematical precision in eye-gaze direction and pupil symmetry. Render all garment and footwear libraries with 100% commercial-grade integrity.';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('synthesis');
