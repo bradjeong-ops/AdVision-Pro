@@ -387,6 +387,10 @@ const REFINEMENT_PROTOCOL = `
     - [AERODYNAMIC DRAG]: Respect physics. Clothing should flow/flutter naturally in the direction of movement with realistic aerodynamic drag and inertia.
     - [SHUTTER SPEED MATCHING]: Match the original image's shutter speed perfectly. If the subjects in the original image are sharp, the new object MUST be 100% sharp and in-focus with NO motion blur.
 13. [HAND-OBJECT CONTACT]: If the object is being held, ensure the hand's fingers wrap around the object realistically. There must be NO gaps or "floating" objects. The grip must look firm and physically grounded.
+14. [GARMENT STRUCTURE & DRAPING]: When changing garment types (e.g., collar to hood):
+    - [VOLUME & PERSPECTIVE]: Reconstruct the 3D volume of the new garment. A hood must sit realistically on the shoulders and wrap around the neck with proper thickness.
+    - [SHOULDER LINE INTEGRITY]: Ensure the garment follows the subject's skeletal pose. The fabric must drape naturally over the shoulders without looking flat or "pasted" over the background.
+    - [CONTACT SHADOWS]: Add subtle shadows between the garment (like a hood) and the body/background to create a sense of depth and separation.
 `;
 
 export const refineImageWithMask = async (
@@ -902,7 +906,3 @@ export const correctWhiteBalance = async (
     }
     return null;
   } catch (e) {
-    console.error("White Balance Correction Error:", e);
-    return null;
-  }
-};
