@@ -25,16 +25,21 @@ import {
   analyzeReferenceImage,
   translateProductionGuide,
   classifyModelView,
+  refineImageWithMask,
+  getClosestAspectRatio,
   CategorizedProduct, 
   AllowedAspectRatio, 
   ImageQuality,
   ModelViewType,
   SubjectMap
 } from './services/gemini';
+import { compositeMaskedImage } from './services/imageUtils';
 import BlendTab from './components/BlendTab';
 import IntensityTab from './components/IntensityTab';
 import GuestLoginModal from './components/GuestLoginModal';
+import { MaskEditor } from './components/MaskEditor';
 import { get, set } from 'idb-keyval';
+import { Paintbrush } from 'lucide-react';
 
 const getAIStudio = () => (window as any).aistudio;
 
@@ -59,6 +64,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('synthesis');
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isRefining, setIsRefining] = useState(false);
+  const refinementAbortControllerRef = useRef<AbortController | null>(null);
+  const [refinementImage, setRefinementImage] = useState<string | null>(null);
   
   const [fullscreenData, setFullscreenData] = useState<{
     images: {url: string, original?: string, initial?: string, ratio?: number, productionGuide?: ProductionGuide, atmosphereParams?: AtmosphereParams}[],
@@ -234,22 +242,40 @@ const App: React.FC = () => {
       loadHistory();
     }
   }, [guestPin]);
+  const isSavingSynthesis = useRef(false);
+  const isSavingAtmosphere = useRef(false);
+  const lastSavedSynthesis = useRef<string>("");
+  const lastSavedAtmosphere = useRef<string>("");
 
-  // Debounced save to IndexedDB to prevent "Should not already be working" and DataCloneError
+  // Debounced Save to IndexedDB to prevent "Should not already be working" and DataCloneError
   useEffect(() => {
     if (!guestPin || !isHistoryLoaded) return;
 
-    const timer = setTimeout(() => {
-      set(`synthesisHistory_${guestPin}`, synthesisHistory.slice(0, 50))
-        .catch((err: any) => {
-          if (err.message?.includes('Data cannot be cloned') || err.message?.includes('out of memory')) {
-            console.warn("History too large to save, trimming...");
-            setSynthesisHistory(prev => prev.slice(0, 10));
-          } else {
-            console.error("Failed to save synthesis history", err);
+    const currentHistoryStr = JSON.stringify(synthesisHistory.slice(0, 5));
+    if (currentHistoryStr === lastSavedSynthesis.current) return;
+
+    const timer = setTimeout(async () => {
+      if (isSavingSynthesis.current) return;
+      isSavingSynthesis.current = true;
+      
+      try {
+        await set(`synthesisHistory_${guestPin}`, synthesisHistory.slice(0, 5));
+        lastSavedSynthesis.current = currentHistoryStr;
+      } catch (err: any) {
+        if (err.name === 'DataCloneError' || err.message?.includes('Data cannot be cloned') || err.message?.includes('out of memory')) {
+          console.warn("Synthesis history too large to save even at 10 items, attempting with 3...");
+          try {
+            await set(`synthesisHistory_${guestPin}`, synthesisHistory.slice(0, 3));
+          } catch (innerErr) {
+            console.error("Failed to save even minimal synthesis history", innerErr);
           }
-        });
-    }, 1000);
+        } else {
+          console.error("Failed to save synthesis history", err);
+        }
+      } finally {
+        isSavingSynthesis.current = false;
+      }
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [synthesisHistory, guestPin, isHistoryLoaded]);
@@ -257,17 +283,31 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!guestPin || !isHistoryLoaded) return;
 
-    const timer = setTimeout(() => {
-      set(`atmosphereHistory_${guestPin}`, atmosphereHistory.slice(0, 50))
-        .catch((err: any) => {
-          if (err.message?.includes('Data cannot be cloned') || err.message?.includes('out of memory')) {
-            console.warn("Atmosphere history too large to save, trimming...");
-            setAtmosphereHistory(prev => prev.slice(0, 10));
-          } else {
-            console.error("Failed to save atmosphere history", err);
+    const currentHistoryStr = JSON.stringify(atmosphereHistory.slice(0, 5));
+    if (currentHistoryStr === lastSavedAtmosphere.current) return;
+
+    const timer = setTimeout(async () => {
+      if (isSavingAtmosphere.current) return;
+      isSavingAtmosphere.current = true;
+
+      try {
+        await set(`atmosphereHistory_${guestPin}`, atmosphereHistory.slice(0, 5));
+        lastSavedAtmosphere.current = currentHistoryStr;
+      } catch (err: any) {
+        if (err.name === 'DataCloneError' || err.message?.includes('Data cannot be cloned') || err.message?.includes('out of memory')) {
+          console.warn("Atmosphere history too large to save even at 10 items, attempting with 3...");
+          try {
+            await set(`atmosphereHistory_${guestPin}`, atmosphereHistory.slice(0, 3));
+          } catch (innerErr) {
+            console.error("Failed to save even minimal atmosphere history", innerErr);
           }
-        });
-    }, 1000);
+        } else {
+          console.error("Failed to save atmosphere history", err);
+        }
+      } finally {
+        isSavingAtmosphere.current = false;
+      }
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [atmosphereHistory, guestPin, isHistoryLoaded]);
@@ -441,6 +481,123 @@ const App: React.FC = () => {
     }));
   }, []);
 
+  const handleRefinement = async (maskBase64: string, prompt: string, referenceImages: string[] = [], isFastMode: boolean = false, alphaMaskBase64?: string) => {
+    if (!refinementImage || isRefining) return;
+    
+    setIsRefining(true);
+    refinementAbortControllerRef.current = new AbortController();
+    const signal = refinementAbortControllerRef.current.signal;
+
+    // 타임아웃 방지용 안전 장치 (180초로 연장)
+    let isTimedOut = false;
+    const timeoutId = setTimeout(() => {
+      isTimedOut = true;
+      if (refinementAbortControllerRef.current) {
+        refinementAbortControllerRef.current.abort();
+      }
+      setIsRefining(false);
+      showToast('요청 시간이 초과되었습니다. 다시 시도해 주세요.', 'error');
+      console.error("handleRefinement: Timeout reached.");
+    }, 180000);
+
+    showToast('수정 작업을 시작합니다. 잠시만 기다려주세요...', 'info');
+    
+    try {
+      const currentImage = fullscreenData?.images[fullscreenData.currentIndex];
+      const ratioValue = currentImage?.ratio || 1;
+      const aspectRatio = getClosestAspectRatio(ratioValue);
+
+      console.log("handleRefinement: Calling refineImageWithMask...");
+
+      // 1. 제미나이 AI에게는 형태를 인식할 투명 마스크(alphaMaskBase64)를 보냄 (마젠타 구멍 뚫기용)
+      const result = await refineImageWithMask(refinementImage, alphaMaskBase64 || maskBase64, prompt, aspectRatio, referenceImages, selectedQuality, isFastMode, 'image/png', signal);
+      
+      if (signal.aborted) {
+        console.log("handleRefinement: Aborted by user.");
+        return;
+      }
+
+      if (isTimedOut) return;
+
+      if (!result) {
+        throw new Error('AI가 이미지를 생성하지 못했습니다. 다시 시도해 주세요.');
+      }
+
+      console.log("handleRefinement: Result received. Length:", result.length);
+      
+      // 👇 다시 브러쉬 마스크(alphaMaskBase64)를 사용하도록 되돌립니다!
+      const compositingMask = alphaMaskBase64 || maskBase64;
+      
+      console.log("Compositing refinement result...");
+      const compositedResult = await compositeMaskedImage(refinementImage, result, compositingMask);
+      
+      // 변화가 전혀 없는지 체크 (AI가 원본을 그대로 돌려준 경우)
+      const originalSample = refinementImage.substring(refinementImage.length / 2, refinementImage.length / 2 + 100);
+      const resultSample = compositedResult.substring(compositedResult.length / 2, compositedResult.length / 2 + 100);
+      const hasChanged = refinementImage.length !== compositedResult.length || originalSample !== resultSample;
+      
+      if (!hasChanged) {
+        console.warn("handleRefinement: No visual changes detected.");
+        showToast('AI가 이미지에 변화를 주지 못했습니다. 지시어를 더 구체적으로 입력해 보세요.', 'warning');
+      } else {
+        console.log("handleRefinement: Success. Result length:", compositedResult.length);
+        showToast('부분 수정이 성공적으로 반영되었습니다!', 'success');
+      }
+
+      const newRecord: GenerationRecord = {
+        id: Date.now().toString(),
+        originalImage: refinementImage,
+        generatedImage: compositedResult,
+        prompt: `Refinement: ${prompt}`,
+        timestamp: Date.now(),
+        ratio: fullscreenData?.images[fullscreenData.currentIndex].ratio,
+        productionGuide: fullscreenData?.images[fullscreenData.currentIndex].productionGuide,
+        atmosphereParams: fullscreenData?.images[fullscreenData.currentIndex].atmosphereParams
+      };
+
+      if (activeTab === 'synthesis') {
+        setSynthesisHistory(prev => [newRecord, ...prev].slice(0, 50));
+      } else {
+        setAtmosphereHistory(prev => [newRecord, ...prev].slice(0, 50));
+      }
+      
+      if (fullscreenData) {
+        const newImages = [...fullscreenData.images];
+        newImages.splice(fullscreenData.currentIndex + 1, 0, {
+          url: compositedResult,
+          original: refinementImage,
+          ratio: newRecord.ratio,
+          productionGuide: newRecord.productionGuide,
+          atmosphereParams: newRecord.atmosphereParams
+        });
+        setFullscreenData({
+          ...fullscreenData,
+          images: newImages,
+          currentIndex: fullscreenData.currentIndex + 1
+        });
+      }
+
+      // 에디터 닫기
+      setRefinementImage(null);
+    } catch (err: any) {
+      if (signal.aborted) return;
+      console.error("handleRefinement: Error caught:", err);
+      showToast(err.message || '수정 중 오류가 발생했습니다.', 'error');
+    } finally {
+      clearTimeout(timeoutId);
+      setIsRefining(false);
+      refinementAbortControllerRef.current = null;
+      console.log("handleRefinement: Process finished.");
+    }
+  };
+
+  const cancelRefinement = () => {
+    if (refinementAbortControllerRef.current) {
+      refinementAbortControllerRef.current.abort();
+      setIsRefining(false);
+      showToast('수정 작업이 취소되었습니다.', 'info');
+    }
+  };
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>, options?: any) => {
     if (e.target.files) {
       processFiles(Array.from(e.target.files), options);
@@ -522,7 +679,7 @@ const App: React.FC = () => {
             }
           };
         }));
-        setSynthesisHistory(prev => [...newRecords, ...prev].slice(0, 100));
+        setSynthesisHistory(prev => [...newRecords, ...prev].slice(0, 50));
         setStatus(AppStatus.IDLE);
       } else {
         throw new Error("결과물이 생성되지 않았습니다.");
@@ -560,7 +717,7 @@ const App: React.FC = () => {
           const prompt = `Mastering: [Color:${intensityParams.color?.selections?.join(', ') || 'None'}(${intensityParams.color?.weight ?? 50}%)] [Light:${intensityParams.lighting?.selections?.join(', ') || 'None'}(${intensityParams.lighting?.weight ?? 50}%)] [Text:${intensityParams.texture?.selections?.join(', ') || 'None'}(${intensityParams.texture?.weight ?? 50}%)] [Grading:${intensityParams.grading?.selections?.join(', ') || 'None'}(${intensityParams.grading?.weight ?? 50}%)]`;
           return { id: `${Date.now()}-${idx}`, originalImage: targetImage, generatedImage: url, prompt, timestamp: Date.now(), ratio, atmosphereParams: JSON.parse(JSON.stringify(intensityParams)) };
         }));
-        setAtmosphereHistory(prev => [...newRecords, ...prev].slice(0, 100));
+        setAtmosphereHistory(prev => [...newRecords, ...prev].slice(0, 50));
         setStatus(AppStatus.IDLE);
       } else throw new Error("이미지 없음");
     } catch (err: any) {
@@ -598,7 +755,7 @@ const App: React.FC = () => {
           timestamp: Date.now(), 
           ratio 
         };
-        setAtmosphereHistory(prev => [newRecord, ...prev].slice(0, 100));
+        setAtmosphereHistory(prev => [newRecord, ...prev].slice(0, 15));
         setStatus(AppStatus.IDLE);
       } else throw new Error("화이트 밸런스 보정 실패");
     } catch (err: any) {
@@ -636,7 +793,14 @@ const App: React.FC = () => {
   const handleWheel = (e: React.WheelEvent) => {
     if (!fullscreenData) return;
     const delta = e.deltaY > 0 ? -0.2 : 0.2;
-    setZoom(prev => Math.min(Math.max(1, prev + delta), 5));
+    setZoom(prev => {
+      const nextZoom = Math.min(Math.max(1, prev + delta), 5);
+      if (nextZoom <= 1.01) {
+        setPan({ x: 0, y: 0 });
+        return 1;
+      }
+      return nextZoom;
+    });
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -699,6 +863,7 @@ const App: React.FC = () => {
             className={`flex-1 relative flex items-center justify-center p-8 select-none transition-transform duration-200 ${zoom > 1 ? 'cursor-move' : ''}`} 
             onClick={(e) => e.stopPropagation()}
             onMouseDown={handleMouseDown}
+            onDragStart={(e) => e.preventDefault()}
           >
             {/* Navigation Arrows (Relative to Image Area) */}
             <div className="absolute inset-y-0 left-0 w-24 z-10 cursor-pointer group flex items-center justify-start pl-8" onClick={(e) => { e.stopPropagation(); navigateImage('prev'); }}>
@@ -796,28 +961,43 @@ const App: React.FC = () => {
                 />
               )}
               {zoom > 1 && (
-                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white uppercase tracking-widest pointer-events-none z-30 whitespace-nowrap">
-                  Zoom: {Math.round(zoom * 100)}% | Drag to Pan
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-30">
+                  <div className="px-5 py-2.5 bg-black/80 backdrop-blur-xl border border-white/20 rounded-full text-[11px] font-black text-white uppercase tracking-widest pointer-events-none whitespace-nowrap shadow-2xl">
+                    Zoom: {Math.round(zoom * 100)}% | Drag to Pan
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setZoom(1); setPan({ x: 0, y: 0 }); }}
+                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-2xl transition-all active:scale-95 border border-indigo-400/30"
+                  >
+                    Reset View
+                  </button>
                 </div>
               )}
             </div>
           </div>
 
           {/* Right Side Panel: Controls & Production Guide */}
-          <div className="relative h-full w-80 bg-black/40 backdrop-blur-md border-l border-white/5 flex flex-col p-8 gap-8 z-20" onClick={(e) => e.stopPropagation()}>
+          <div className="relative h-full w-80 bg-black/40 backdrop-blur-md border-l border-white/5 flex flex-col p-6 gap-6 z-20" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
                   <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Mastering Panel</h3>
                   <button onClick={() => { setFullscreenData(null); setIsFullscreenComparing(false); setZoom(1); setPan({ x: 0, y: 0 }); setExpandedGuideIndices([]); }} className="p-2 hover:bg-red-600/20 hover:text-red-500 rounded-lg transition-all text-slate-400"><XMarkIcon className="w-5 h-5" /></button>
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     <button 
                       onClick={() => downloadImage(fullscreenData.images[fullscreenData.currentIndex].url, 'AdVisionPro_Export.png')}
-                      className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 transition-all flex items-center justify-center gap-2 group shadow-xl"
+                      className="flex flex-col items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 transition-all group shadow-xl"
                     >
                       <ArrowDownTrayIcon className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />
-                      <span className="text-[9px] font-bold uppercase tracking-widest">Download</span>
+                      <span className="text-[8px] font-bold uppercase tracking-wider">Download</span>
+                    </button>
+                    <button 
+                      onClick={() => setRefinementImage(fullscreenData.images[fullscreenData.currentIndex].url)}
+                      className="flex flex-col items-center justify-center gap-2 py-3 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-xl border border-indigo-500/30 transition-all group shadow-xl"
+                    >
+                      <Paintbrush className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      <span className="text-[8px] font-bold uppercase tracking-wider">Refine</span>
                     </button>
                     <button 
                       onClick={() => {
@@ -830,10 +1010,10 @@ const App: React.FC = () => {
                         setFullscreenData(null);
                         showToast('Image set as base');
                       }}
-                      className="flex-1 py-3 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-xl border border-indigo-500/30 transition-all flex items-center justify-center gap-2 group shadow-xl"
+                      className="flex flex-col items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 transition-all group shadow-xl"
                     >
                       <ArrowPathIcon className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-                      <span className="text-[9px] font-bold uppercase tracking-widest">Set Base</span>
+                      <span className="text-[8px] font-bold uppercase tracking-wider">Set Base</span>
                     </button>
                   </div>
                 </div>
@@ -1110,6 +1290,16 @@ const App: React.FC = () => {
             <span className="text-sm font-bold tracking-tight">{toast.message}</span>
           </div>
         </div>
+      )}
+      {/* Refinement Editor */}
+      {refinementImage && (
+        <MaskEditor 
+          imageUrl={refinementImage}
+          onSave={handleRefinement}
+          onClose={() => setRefinementImage(null)}
+          isProcessing={isRefining}
+          onCancel={cancelRefinement}
+        />
       )}
     </div>
   );
