@@ -906,3 +906,7 @@ export const correctWhiteBalance = async (
     }
     return null;
   } catch (e) {
+    console.error("White Balance Correction Error:", e);
+    return null;
+  }
+};
