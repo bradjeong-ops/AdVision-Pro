@@ -103,7 +103,7 @@ export default function GuestLoginModal({ onLogin, onClose, mode = 'both', initi
   const showKey = mode === 'key' || mode === 'both';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="relative bg-[#1a2235] border border-white/10 p-8 rounded-[32px] shadow-2xl w-full max-w-md flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
         
         {onClose && (
