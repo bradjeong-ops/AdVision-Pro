@@ -1,7 +1,7 @@
 
 import React, { memo } from 'react';
 import { GenerationRecord } from '../types';
-import { ArrowDownTrayIcon, SparklesIcon, TrashIcon } from './Icons';
+import { ArrowDownTrayIcon, SparklesIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
 
 interface HistoryPanelProps {
   data: GenerationRecord[];
@@ -23,7 +23,7 @@ const HistoryPanel = memo(({
   columns
 }: HistoryPanelProps) => {
   const [currentPage, setCurrentPage] = React.useState(1);
-  const itemsPerPage = columns ? 24 : 12; // More items if more columns
+  const itemsPerPage = 12;
   const totalPages = Math.ceil(data.length / itemsPerPage);
 
   // Reset to page 1 if data changes significantly (e.g. cleared)
@@ -51,6 +51,7 @@ const HistoryPanel = memo(({
             <div key={item.id} className={`group bg-slate-900/40 border border-white/5 ${columns ? 'rounded-xl p-1.5' : 'rounded-2xl p-2'} relative transition-all hover:bg-slate-900/80 cursor-pointer shadow-2xl hover:border-white/10`} onClick={() => onSelect(globalIndex)}>
               <div className={`${columns ? 'rounded-lg' : 'rounded-xl'} overflow-hidden bg-black relative shadow-inner transition-all group-hover:scale-[0.98]`} style={{ aspectRatio: item.ratio || (9/16) }}>
                 <img src={item.generatedImage} className="w-full h-full object-contain" />
+                
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-all duration-300">
                   <div className={`absolute ${columns ? 'top-2 right-2' : 'top-3 right-3'} flex flex-col gap-2`} onClick={(e) => e.stopPropagation()}>
                     <button onClick={(e) => { e.stopPropagation(); downloadImage(item.generatedImage, `AdvisionPro_Generated_Image_${data.length - globalIndex}.png`); }} className={`${columns ? 'w-8 h-8' : 'w-10 h-10'} flex items-center justify-center bg-white/10 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-indigo-600 transition-all shadow-2xl`} title="Download"><ArrowDownTrayIcon className={columns ? 'w-4 h-4' : 'w-5 h-5'} /></button>
@@ -71,16 +72,37 @@ const HistoryPanel = memo(({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex justify-center items-center gap-2 mt-4">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-            <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all border ${currentPage === page ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10 text-slate-500 hover:text-white hover:bg-white/10'}`}
+        <div className="flex flex-col items-center gap-4 mt-8">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 hover:text-white disabled:opacity-20 transition-all"
             >
-              {page}
+              <ChevronLeftIcon className="w-4 h-4" />
             </button>
-          ))}
+
+            <div className="flex items-center gap-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all border ${currentPage === page ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10 text-slate-500 hover:text-white hover:bg-white/10'}`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 hover:text-white disabled:opacity-20 transition-all"
+            >
+              <ChevronRightIcon className="w-4 h-4" />
+            </button>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Page {currentPage} of {totalPages}</span>
         </div>
       )}
     </div>
