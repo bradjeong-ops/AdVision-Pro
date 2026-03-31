@@ -43,8 +43,8 @@ export const compositeMaskedImage = (
           
           // 🔥 프로페셔널 패치 2: 지능형 적응형 페더링 (Adaptive Feathering)
           // 경계선을 부드럽게 하되, 물체의 선명도를 해치지 않도록 기존보다 더 정밀하게 조절합니다.
-          // 기존 (width / 200) -> 개선 (width / 500)으로 더 날카로운 경계면 확보
-          const featherAmount = Math.max(3, canvas.width / 500); 
+          // 기존 (width / 500) -> 개선 (width / 250)으로 더 부드러운 경계면 확보하여 '종이 인형' 느낌 제거
+          const featherAmount = Math.max(5, canvas.width / 250); 
           tempCtx.filter = `blur(${featherAmount}px)`;
           
           // 마스크를 그려서 AI 이미지의 외곽선을 부드러운 반투명 상태로 만듭니다.
