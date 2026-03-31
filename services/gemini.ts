@@ -368,29 +368,31 @@ export const getClosestAspectRatio = (ratio: number): AllowedAspectRatio => {
 };
 
 const REFINEMENT_PROTOCOL = `
-[HIGH-END COMMERCIAL RETOUCHING PROTOCOL - V12]
-1. ROLE: You are a world-class high-end commercial retoucher for luxury fashion brands.
-2. LIGHTING & SHADOW MATCHING:
-   - Analyze the light source direction, color temperature, and shadow density of the [Anatomy & Scale Reference].
-   - Apply perfect Global Illumination (GI) and Ambient Occlusion (AO) to the new object.
-   - [CONTACT SHADOWS]: Create physically accurate contact shadows where the object meets the ground or body. These shadows should be dark and sharp at the point of contact.
-3. GROUND INTEGRATION: Ensure the object does not look "pasted on". Match the lighting, texture, and reflections of the ground onto the lower part of the object.
-4. DEPTH OF FIELD (DOF): Match the focal blur (bokeh) of the original image.
-5. TEXTURE & NOISE: Match the film grain or digital noise profile of the original plate.
-6. SEAMLESS INTEGRATION: The transition between original pixels and new content must be 100% invisible.
-7. EDGE CONTINUITY: Continue hair strands, clothing patterns, or background lines perfectly into the edit zone.
-8. GLOBAL COHERENCE: Match the color grading and contrast perfectly.
-9. ABSOLUTE OPACITY: The entire output image must be 100% OPAQUE.
-10. NO HALLUCINATIONS: Do not add random artifacts or unrelated objects.
-11. BACKGROUND RECONSTRUCTION: Perfectly reconstruct the background behind the new object.
-12. DYNAMIC MOTION & PHYSICS (HIGH-FIDELITY): 
-    - [AERODYNAMIC DRAG]: Respect physics. Clothing should flow/flutter naturally in the direction of movement with realistic aerodynamic drag and inertia.
-    - [SHUTTER SPEED MATCHING]: Match the original image's shutter speed perfectly. If the subjects in the original image are sharp, the new object MUST be 100% sharp and in-focus with NO motion blur.
-13. [HAND-OBJECT CONTACT]: If the object is being held, ensure the hand's fingers wrap around the object realistically. There must be NO gaps or "floating" objects. The grip must look firm and physically grounded.
-14. [GARMENT STRUCTURE & DRAPING]: When changing garment types (e.g., collar to hood):
-    - [VOLUME & PERSPECTIVE]: Reconstruct the 3D volume of the new garment. A hood must sit realistically on the shoulders and wrap around the neck with proper thickness.
-    - [SHOULDER LINE INTEGRITY]: Ensure the garment follows the subject's skeletal pose. The fabric must drape naturally over the shoulders without looking flat or "pasted" over the background.
-    - [CONTACT SHADOWS]: Add subtle shadows between the garment (like a hood) and the body/background to create a sense of depth and separation.
+[HIGH-END COMMERCIAL RETOUCHING PROTOCOL - V13 MASTER]
+1. ROLE: You are a world-class high-end commercial retoucher and senior CGI compositor for luxury fashion and automotive brands. Your work is indistinguishable from reality.
+2. LIGHTING & SHADOW INTEGRATION (PHYSICS-BASED):
+   - [LIGHT SOURCE MAPPING]: Analyze the primary and secondary light sources in the [Anatomy & Scale Reference]. Match the color temperature (Kelvin), intensity, and direction perfectly.
+   - [GLOBAL ILLUMINATION]: Apply realistic bounce light from the environment onto the new object.
+   - [CONTACT SHADOWS & AO]: Create multi-layered contact shadows. A sharp, dark "occlusion" shadow at the exact point of contact, transitioning into a softer "penumbra" shadow.
+   - [LIGHT WRAP]: Implement "Light Wrap" at the edges. Bright background light should subtly bleed over the edges of the new object to anchor it into the scene.
+3. OPTICAL FIDELITY & LENS EFFECTS:
+   - [DEPTH OF FIELD (DOF)]: Match the focal plane perfectly. If the area is in the foreground (like a tree close to the lens), apply a realistic "Gaussian Bokeh" that matches the lens's aperture characteristics.
+   - [CHROMATIC ABERRATION]: Match the subtle color fringing at the edges seen in the original image.
+   - [COLOR GRADING & WB]: Match the color grading, white balance, and saturation of the original image exactly.
+   - [LENS FLARE & BLOOM]: If there are bright light sources, apply realistic lens flare or bloom that interacts with the new object.
+   - [GRAIN & NOISE]: Analyze the digital noise or film grain of the [Anatomy & Scale Reference] and apply an identical noise profile to the new content.
+4. SEAMLESS EDGE BLENDING:
+   - [ANTI-ALIASING]: Ensure edges are perfectly anti-aliased. No "stair-stepping" or "cut-paper" look.
+   - [ATMOSPHERIC PERSPECTIVE]: If the object is distant, apply subtle atmospheric haze/desaturation to match the depth.
+   - [PERSPECTIVE & HORIZON]: Align the new object's perspective with the original image's horizon line and vanishing points.
+   - [SPECIES & FOLIAGE]: If nature is involved, match the species and growth patterns of the surrounding vegetation.
+5. MATERIAL & TEXTURE REALISM:
+   - Match the micro-texture (pores, fabric weave, wood grain) of the surroundings.
+   - [REFLECTIONS]: If the object is reflective, it MUST reflect the environment shown in the [Anatomy & Scale Reference].
+6. ABSOLUTE OPACITY: The entire output image must be 100% OPAQUE.
+7. BACKGROUND RECONSTRUCTION: Perfectly reconstruct the background behind the new object, ensuring no "ghosting" of the original object.
+8. [HAND-OBJECT CONTACT]: If the object is being held, fingers must wrap around it with realistic pressure and occlusion. No "floating" grips.
+9. [GARMENT STRUCTURE]: Reconstruct 3D volume and natural draping. Hoods/collars must have realistic thickness and cast shadows on the body.
 `;
 
 export const refineImageWithMask = async (
@@ -514,19 +516,17 @@ export const refineImageWithMask = async (
 
     Instruction for the new content: "${translatedPrompt}"
     
-    STRICT RULES FOR ANATOMICAL INTEGRITY:
-    1. [HAND SCALE LOCK]: Look at the [Anatomy & Scale Reference]. You MUST maintain the EXACT size and skeletal structure of the hand. DO NOT ENLARGE THE HAND. The hand in your output must match the original hand's scale 1:1. Match the finger length and palm width perfectly.
-    2. [TOTAL VOID - NO GHOSTING]: The MAGENTA area in [Edit Zone Guide] is a TOTAL VOID. You MUST IGNORE ALL PIXELS from the [Anatomy & Scale Reference] that fall within this magenta area. DO NOT let any part of the old object's silhouette or shadow appear. Erase it completely and replace it with 100% NEW, CLEAN pixels.
-    3. [SENSIBLE OBJECT SIZING]: Render the "${translatedPrompt}" at its REAL-WORLD NATURAL SIZE. 
-       - Do not artificially scale the object to fill the entire magenta area if doing so would make it look unnaturally large or small compared to the human hands and environment in the [Anatomy & Scale Reference].
-       - ${isBigRequested ? "A 'large' size was requested, so make it a bit bigger than average, but it must still fit naturally in a human hand without distorting the hand." : "If the requested object is smaller than the magenta area, fill the remaining magenta space with the logical background (sky, trees, etc.) from the [Anatomy & Scale Reference]."}
-    4. [PIXEL-PERFECT BLENDING]: The transition between your new content and the original pixels must be invisible. Ensure the final image is sharp and high-resolution (4K quality). Meticulously reconstruct the background (hair, sky, wall) to be clean and artifact-free.
-    5. [SHARP FOCUS ENFORCEMENT]: Do NOT apply any artificial blur or "dreamy" effects. The new object must match the exact sharpness and grain (noise) of the original image's focal plane.
-    6. [EDGE CONTINUITY CHECK]: If the mask cuts through hair, skin, or clothing, you MUST reconstruct those elements so they flow naturally from the original parts into the edit zone. No sharp breaks or smudges.
-    7. [OBJECT EXTENSION]: If the requested object ("${translatedPrompt}") is naturally longer or larger than the magenta area (e.g., a long golf club replacing a shorter tennis racket), you ARE PERMITTED to extend the object slightly into the immediate surrounding background to maintain realistic physical proportions, provided the extension blends 100% seamlessly with the environment.
-    8. [STRICT OBJECT ENFORCEMENT]: You MUST generate ONLY the requested object ("${translatedPrompt}"). Do NOT generate unrelated items (e.g., food, toys, or other household objects) even if the shape seems similar. If a "golf club" is requested, it must have a thin metallic shaft and a specific club head.
-    9. [MATERIAL FIDELITY]: Ensure the material of the new object is realistic. A golf club should look like carbon fiber or polished metal, not organic or plastic.
-    10. [CONTEXTUAL OBJECT RECOGNITION]: Carefully identify the requested object ("${translatedPrompt}"). Do not be misled by the shape of the original object or the mask. For example, if the original object was a racket and the new one is a golf club, ensure the result is a clear, distinct golf club with all its characteristic features (grip, shaft, head), not a hybrid or a different object entirely.
+    STRICT RULES FOR PROFESSIONAL COMPOSITING:
+    1. [LENS DEPTH MATCHING]: Analyze the focal plane of the [Anatomy & Scale Reference]. If the magenta area is in the extreme foreground (like a tree or prop close to the camera), you MUST apply a heavy, realistic bokeh blur to the new object. It should NOT be sharp if the surrounding foreground elements are blurry.
+    2. [LIGHT WRAP & BLOOM]: To prevent a "cut-out" look, implement "Light Wrap". The bright light from the background (e.g., sky, sunlit grass) must subtly bleed into the edges of the new object. This is CRITICAL for professional integration.
+    3. [EDGE SOFTNESS]: Do NOT produce hard, aliased edges. The boundary between the new object and the original background must have a natural, soft transition that matches the camera's resolution and lens characteristics.
+    4. [ENVIRONMENTAL LIGHTING]: The new object must be lit by the SAME light sources as the rest of the scene. If there is a warm sunset light from the right, the right side of the object must have a warm highlight, and the left side must have cool ambient shadows.
+    5. [SPECIES & FOLIAGE MATCHING]: If adding or modifying nature (trees, grass, plants), you MUST match the species, leaf shape, and color of the existing vegetation in the [Anatomy & Scale Reference].
+    6. [ATMOSPHERIC DEPTH]: Match the atmospheric haze and color grading of the original image. The new object must feel like it exists in the same 3D space and air.
+    7. [ANATOMICAL SCALE LOCK]: Maintain the EXACT size of hands and body parts from the [Anatomy & Scale Reference]. Do not distort the human anatomy.
+    8. [TOTAL VOID]: The MAGENTA area is a TOTAL VOID. Replace it with 100% NEW pixels. Reconstruct the background (sky, trees, grass) perfectly where the new object does not cover it.
+    9. [MATERIAL FIDELITY]: The texture of the new object (e.g., wood bark, metal, fabric) must match the resolution and detail level of the original image.
+    10. [NO GHOSTING]: Ensure no traces of the original object's silhouette remain.
     
     Output ONLY the finalized, full image.
   `;
