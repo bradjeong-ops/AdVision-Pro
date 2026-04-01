@@ -277,7 +277,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
   ${languageInstruction} Follow this exact structured format for each field in a JSON response.
 
   JSON Keys and required content:
-  - "coreProduction": Describe the Theme, Style, Overall Concept, and Subject Focus. IMPORTANT: You MUST include detailed descriptions of the subjects' actions, poses, and physical interactions.
+  - "coreProduction": Describe the Theme, Style, and Overall Concept. IMPORTANT: Focus strictly on the environment, lighting, and technical aesthetic. You MUST NOT describe any people, subjects, actions, or poses in this section. Focus only on the scene's atmosphere and production quality.
   - "cameraComposition": Describe the Camera Angle, Focal Length, Aperture, Exposure & ISO, Perspective, Framing & Composition.
   - "setBackground": Describe the Set Design, Floor Materials, Props, Backdrop, and Compositional Elements. CRITICAL: Do NOT mention or describe the subjects' clothing, outfits, or garments in this section. Focus strictly on the environment and props.
   - "lightingMood": Describe the Lighting Direction, Highlights, Shadows, Mood, Atmosphere, and Color Palette.
