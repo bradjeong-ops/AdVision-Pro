@@ -90,7 +90,8 @@ export const downscaleImage = async (url: string, maxDimension: number = 2048, f
         }
 
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL(format, format === 'image/jpeg' ? 0.92 : undefined));
+        // Using 0.85 quality for JPEGs to significantly reduce payload size for reference images
+        resolve(canvas.toDataURL(format, format === 'image/jpeg' ? 0.85 : undefined));
       } catch (e) {
         console.warn("Downscale failed, using original:", e);
         resolve(url);
@@ -106,7 +107,7 @@ export const downscaleImage = async (url: string, maxDimension: number = 2048, f
 
 const generateSafeSeed = () => Math.floor(Math.random() * 2147483647);
 
-const withRetry = async <T>(fn: () => Promise<T>, maxRetries = 3, initialDelay = 1500, signal?: AbortSignal): Promise<T> => {
+const withRetry = async <T>(fn: () => Promise<T>, maxRetries = 5, initialDelay = 2000, signal?: AbortSignal): Promise<T> => {
   let lastError: any;
   for (let i = 0; i < maxRetries; i++) {
     if (signal?.aborted) throw new Error('Aborted');
@@ -293,6 +294,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
 
   Ensure the output is a valid JSON object with keys: "coreProduction", "cameraComposition", "setBackground", "lightingMood", "textureTechnical", "subjects".`;
 
+  const downscaled = await downscaleImage(base64Image, 1536, 'image/jpeg');
   try {
     const response = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -323,7 +325,7 @@ export const analyzeReferenceImage = async (base64Image: string, mimeType: strin
       },
       contents: {
         parts: [
-          { inlineData: { data: getBase64Data(base64Image), mimeType } },
+          { inlineData: { data: getBase64Data(downscaled), mimeType: 'image/jpeg' } },
           { text: prompt }
         ]
       }
@@ -667,12 +669,20 @@ export const generateProductEdit = async (
   const singleTask = async (index: number) => {
     const parts: any[] = [];
     
+    const hasModels = categories.some(cat => Object.values(cat.mains).some(v => v !== null));
+    const hasProps = categories.some(cat => cat.items && cat.items.length > 0);
+
     if (base64Original) {
+      const downscaledBase = await downscaleImage(base64Original, 1536, 'image/jpeg');
       parts.push({ text: "[Base Image]: This is the foundational image. You MUST preserve the EXACT layout, composition, background, and overall structure of this image. If there is a person, preserve their pose and skeleton. If there is a main product, preserve its placement and scale." });
-      parts.push({ inlineData: { data: getBase64Data(base64Original), mimeType } });
+      parts.push({ inlineData: { data: getBase64Data(downscaledBase), mimeType: 'image/jpeg' } });
       parts.push({ text: "Now, using the [Base Image] as your strict template, replace the subjects using the following references and mapping:" });
     } else {
-      parts.push({ text: "Generate a photorealistic image of the EXACT subject (person or product) shown in the [Subject Reference] images." });
+      if (!hasModels && hasProps) {
+        parts.push({ text: "Generate a photorealistic image featuring the product(s) shown in the [Product/Prop Reference] images as the central subject. Create a high-end, professional advertising environment for these products." });
+      } else {
+        parts.push({ text: "Generate a photorealistic image of the EXACT subject (person or product) shown in the provided reference images." });
+      }
     }
 
     // Add mapping instructions if available
@@ -687,35 +697,40 @@ export const generateProductEdit = async (
       }
     }
 
-    categories.forEach((cat) => {
+    for (const cat of categories) {
       const catUpper = cat.category.toUpperCase();
       
       // Handle items (Product/Prop section)
       if (cat.items && cat.items.length > 0) {
-        cat.items.forEach((item, idx) => {
+        for (let idx = 0; idx < cat.items.length; idx++) {
+          const item = cat.items[idx];
+          const downscaledItem = await downscaleImage(item, 1536, 'image/jpeg');
           const label = cat.category === 'other' ? 'Product/Prop' : 'Reference';
           parts.push({ text: `[${label} Reference: ${catUpper} ${idx}]: Use this image to accurately represent the product's appearance, details, and branding. If this is a standalone product, do NOT imagine a person holding it unless explicitly requested.` });
-          parts.push({ inlineData: { data: getBase64Data(item), mimeType } });
-        });
+          parts.push({ inlineData: { data: getBase64Data(downscaledItem), mimeType: 'image/jpeg' } });
+        }
       }
 
       // Handle mains (Model section)
-      ['front', 'side', 'back', 'face'].forEach(view => {
+      for (const view of ['front', 'side', 'back', 'face']) {
         const data = cat.mains[view as keyof typeof cat.mains];
         if (data) {
+          const downscaledData = await downscaleImage(data, 1536, 'image/jpeg');
           const partName = view === 'face' ? `[Face Detail Reference: ${catUpper}]` : `[Subject Reference: ${catUpper} ${view.toUpperCase()}]`;
           const description = view === 'face' ? `Use this image to perfectly match the person's face and identity.` : `Use this image to match the person's body, identity, and clothing.`;
           parts.push({ text: `${partName}: ${description}` });
-          parts.push({ inlineData: { data: getBase64Data(data), mimeType } });
+          parts.push({ inlineData: { data: getBase64Data(downscaledData), mimeType: 'image/jpeg' } });
         }
-      });
+      }
 
       // Handle details (Garment details)
-      cat.details.forEach((detail, idx) => {
+      for (let idx = 0; idx < cat.details.length; idx++) {
+        const detail = cat.details[idx];
+        const downscaledDetail = await downscaleImage(detail, 1536, 'image/jpeg');
         parts.push({ text: `[Garment Detail Reference: ${catUpper} ${idx}]: Use this to match clothing details.` });
-        parts.push({ inlineData: { data: getBase64Data(detail), mimeType } });
-      });
-    });
+        parts.push({ inlineData: { data: getBase64Data(downscaledDetail), mimeType: 'image/jpeg' } });
+      }
+    }
 
     const proGroupProtocol = isProGroup ? `
 [PRO GROUP MODE ACTIVE]:
